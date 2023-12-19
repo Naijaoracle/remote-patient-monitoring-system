@@ -1,3 +1,4 @@
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 contract MeasurementContract {
@@ -35,8 +36,8 @@ contract MeasurementContract {
 
     function sendMeasurementToValidators(string memory _measurement) internal onlyValidator {
         // Function to send the received measurement to the validators
-        // Implement the logic to handle measurement validation or other processes here
-        // For demonstration purposes, let's emit an event indicating measurement sent to validators
+        // Will implement the logic to handle measurement validation or other processes here
+        // Let's emit an event indicating measurement sent to validators
         emit MeasurementSentToValidators(_measurement);
     }
 
