@@ -1,0 +1,43 @@
+{
+    "config": {
+        "chainId": 10,
+        "eip150Block": 1,
+        "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "eip155Block": 1,
+        "eip158Block": 1,
+        "byzantiumBlock": 1,
+        "istanbul": {
+            "epoch": 30000,
+            "policy": 0
+        },
+        "isQuorum": true
+    },
+    "nonce": "0x0",
+    "timestamp": "0x5cffc201",
+    "extraData": "0x",
+    "gasLimit": "0x1FFFFFFFFFFFFF", // Increased gas limit for more transactions per block
+    "difficulty": "0x4000", // Adjusted difficulty for a balance between security and throughput
+    "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+    "coinbase": "0x0000000000000000000000000000000000000000",
+    "alloc": {
+        // Your allocated account balances remain unchanged
+        "189d23d201b03ae1cf9113672df29a5d672aefa3": {
+            "balance": "0x446c3b15f9926687d2c40534fdb564000000000000"
+        },
+        "44b07d2c28b8ed8f02b45bd84ac7d9051b3349e6": {
+            "balance": "0x446c3b15f9926687d2c40534fdb564000000000000"
+        },
+        "4c1ccd426833b9782729a212c857f2f03b7b4c0d": {
+            "balance": "0x446c3b15f9926687d2c40534fdb564000000000000"
+        },
+        "7ae555d0f6faad7930434abdaac2274fd86ab516": {
+            "balance": "0x446c3b15f9926687d2c40534fdb564000000000000"
+        },
+        "c1056df7c02b6f1a353052eaf0533cc7cb743b52": {
+            "balance": "0x446c3b15f9926687d2c40534fdb564000000000000"
+        }
+    },
+    "number": "0x0",
+    "gasUsed": "0x0",
+    "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+}
