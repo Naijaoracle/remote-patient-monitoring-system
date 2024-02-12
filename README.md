@@ -13,10 +13,10 @@ correctly assessed any measurements before adding them to the ledger.
 The use of a distributed ledger (on a consortium blockchain) is done 
 ensure the records cannot be edited by any one party.
 
-The research behind this project is in the academic paper attached.
+The research behind this project is in the academic paper attached. https://www.researchgate.net/publication/377029947_A_proposal_for_improving_the_data_security_of_remote_patient_monitoring_systems_by_proximity_verification_using_blockchain
 
 My MSc courses FOUNDATIONS OF HEALTH INFORMATION SYSTEMS (COMP7070) and 
-BLOCKCHAIN AND DIGITAL FUTURES (COMP7058) form the knowledge base for this 
+BLOCKCHAIN AND DIGITAL FUTURES (COMP7058) provided a knowledge base for this 
 project.
 
 This project is still a work in progress and is not for use in a 
