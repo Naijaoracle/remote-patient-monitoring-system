@@ -1,5 +1,3 @@
-// Filepath: /config/production.json
-
 {
     "blockchain": {
       "networkId": 1234,
