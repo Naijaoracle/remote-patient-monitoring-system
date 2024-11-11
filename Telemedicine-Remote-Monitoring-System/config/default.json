@@ -1,0 +1,17 @@
+// Filepath: /config/default.json
+
+{
+    "blockchain": {
+      "networkId": 1234,
+      "host": "127.0.0.1",
+      "port": 8545
+    },
+    "ble": {
+      "scanTimeout": 5000
+    },
+    "encryption": {
+      "algorithm": "aes-256-cbc",
+      "key": "YourEncryptionKey"
+    }
+  }
+  

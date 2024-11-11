@@ -1,0 +1,17 @@
+[
+    {
+      "deviceAddress": "0xDeviceAddress1",
+      "centralDeviceAddress": "0xCentralDeviceAddress1",
+      "timestampPeripheral": 1620000000,
+      "timestampCentral": 1620000001,
+      "measurementData": "0xSignedData1"
+    },
+    {
+      "deviceAddress": "0xDeviceAddress2",
+      "centralDeviceAddress": "0xCentralDeviceAddress2",
+      "timestampPeripheral": 1620000010,
+      "timestampCentral": 1620000011,
+      "measurementData": "0xSignedData2"
+    }
+  ]
+  

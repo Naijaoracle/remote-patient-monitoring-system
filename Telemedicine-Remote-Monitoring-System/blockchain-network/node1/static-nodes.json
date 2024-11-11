@@ -1,0 +1,5 @@
+[
+    "enode://<node1_enode_address>@127.0.0.1:30303",
+    "enode://<node2_enode_address>@127.0.0.1:30304"
+  ]
+  

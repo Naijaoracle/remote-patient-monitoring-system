@@ -1,0 +1,16 @@
+# Filepath: /blockchain-network/config/config.toml
+
+[Eth]
+NetworkId = 1234
+SyncMode = "full"
+NoPruning = false
+LightPeers = 100
+UltraLightPeers = 20
+
+[Node]
+DataDir = "node1"
+IPCPath = "geth.ipc"
+HTTPHost = "127.0.0.1"
+HTTPPort = 8545
+HTTPVirtualHosts = ["*"]
+HTTPModules = ["admin", "eth", "net", "web3", "personal", "miner", "clique"]

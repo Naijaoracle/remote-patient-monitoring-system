@@ -1,0 +1,28 @@
+{
+    "name": "smart-contracts",
+    "version": "1.0.0",
+    "description": "Smart contracts for the Telemedicine Remote Monitoring System",
+    "main": "truffle-config.js",
+    "scripts": {
+      "test": "truffle test",
+      "migrate": "truffle migrate",
+      "compile": "truffle compile"
+    },
+    "keywords": [
+      "solidity",
+      "blockchain",
+      "smart-contracts",
+      "telemedicine"
+    ],
+    "author": "Naijaoracle",
+    "license": "MIT",
+    "dependencies": {
+      "@truffle/hdwallet-provider": "^1.4.0"
+    },
+    "devDependencies": {
+      "truffle": "^5.4.0",
+      "chai": "^4.3.4",
+      "mocha": "^8.4.0"
+    }
+  }
+  

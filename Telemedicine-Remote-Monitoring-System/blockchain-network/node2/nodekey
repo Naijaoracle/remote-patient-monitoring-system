@@ -1,0 +1,5 @@
+// Filepath: /blockchain-network/node1/nodekey
+// Filepath: /blockchain-network/node2/nodekey
+
+# The nodekey files are generated using geth and contain the private keys for each node.
+# These are binary files and should be generated during the setup process.

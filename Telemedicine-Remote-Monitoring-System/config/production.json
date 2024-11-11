@@ -1,0 +1,17 @@
+// Filepath: /config/production.json
+
+{
+    "blockchain": {
+      "networkId": 1234,
+      "host": "your-production-host",
+      "port": 8545
+    },
+    "ble": {
+      "scanTimeout": 5000
+    },
+    "encryption": {
+      "algorithm": "aes-256-cbc",
+      "key": "YourProductionEncryptionKey"
+    }
+  }
+  
