@@ -20,6 +20,7 @@ Telemedicine-Remote-Monitoring-System/reports/
 # Local blockchain node secrets/artifacts
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/nodekey
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/password.txt
+Telemedicine-Remote-Monitoring-System/blockchain-network/node*/account.txt
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/geth/
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/keystore/
 

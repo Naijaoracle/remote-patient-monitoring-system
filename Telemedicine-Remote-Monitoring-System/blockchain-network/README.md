@@ -1,36 +1,50 @@
-// Filepath: /blockchain-network/README.md
+# Blockchain Network Setup (Local Dev)
 
-# Blockchain Network Setup
+This folder provides a minimal two-node Clique (PoA) network for local development.
 
-This directory contains the configuration files and scripts needed to set up the private blockchain network for the Telemedicine Remote Monitoring System.
+## Scope
+- Intended for local testing and demo validation.
+- Not hardened for production.
+- Secrets are generated locally and should remain untracked.
 
 ## Prerequisites
+- `geth` available on PATH.
 
-- Go Ethereum (geth) installed on your system.
-- Basic understanding of Ethereum node operations.
-
-## Setup Instructions
-
-### 1. Initialize the Network
-
-Run the initialization script:
+## Quick Start
+From `Telemedicine-Remote-Monitoring-System/blockchain-network`:
 
 ```bash
-cd scripts/
-./init-network.sh
+./scripts/bootstrap-network.sh
+```
 
-2. Start the nodes - each in a seperate terminal window
-    ./start-node.sh
+This command:
+- creates node accounts if missing,
+- writes `node1/password.txt` and `node2/password.txt` if missing,
+- generates `genesis.json` with the node signers,
+- initializes both node data dirs.
 
-3. Add Validators
-    ./add-validator.sh <validator_address>
+Then start nodes in separate terminals:
 
-4. Also:
-    Configuration Files
-    genesis.json: Defines the genesis block and network parameters.
-    config.toml: Contains node-specific configurations.
-    Directories
-    node1/ and node2/: Data directories for each node, containing their respective keystore and blockchain data.
-    Notes
-    Ensure that the static-nodes.json file contains the enode addresses of all nodes in the network.
-    The nodes are set up to use the Clique Proof of Authority consensus mechanism.
+```bash
+./scripts/start-node.sh node1
+./scripts/start-node.sh node2
+```
+
+Optional validator proposal (against node1 RPC by default):
+
+```bash
+./scripts/add-validator.sh 0x<validator_address>
+```
+
+## Files generated locally
+- `node1/password.txt`
+- `node2/password.txt`
+- `node1/account.txt`
+- `node2/account.txt`
+- `genesis.json`
+- geth runtime artifacts under each node directory
+
+## Notes
+- The network ID defaults to `1234` and can be overridden with `NETWORK_ID`.
+- `start-node.sh` exposes RPC on `127.0.0.1` ports `8545` (node1) and `8546` (node2).
+- If `genesis.json` is missing, `./scripts/init-network.sh` will call bootstrap automatically.

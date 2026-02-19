@@ -1,13 +1,15 @@
-// Filepath: /blockchain-network/scripts/init-network.sh
+#!/usr/bin/env bash
+set -euo pipefail
 
-#!/bin/bash
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Initialize the blockchain network nodes
+if [[ ! -s "${ROOT_DIR}/genesis.json" ]]; then
+  echo "No usable genesis.json found. Generating one now..."
+  "${ROOT_DIR}/scripts/bootstrap-network.sh"
+  exit 0
+fi
 
-# Initialize node1
-geth --datadir node1 init genesis.json
+geth --datadir "${ROOT_DIR}/node1" init "${ROOT_DIR}/genesis.json"
+geth --datadir "${ROOT_DIR}/node2" init "${ROOT_DIR}/genesis.json"
 
-# Initialize node2
-geth --datadir node2 init genesis.json
-
-echo "Blockchain network initialized."
+echo "Blockchain network initialized from existing genesis.json"

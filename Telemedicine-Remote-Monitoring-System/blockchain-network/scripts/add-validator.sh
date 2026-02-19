@@ -1,18 +1,15 @@
-// Filepath: /blockchain-network/scripts/add-validator.sh
+#!/usr/bin/env bash
+set -euo pipefail
 
-#!/bin/bash
-
-# Usage: ./add-validator.sh <validator_address>
-
-if [ "$#" -ne 1 ]; then
-    echo "Usage: ./add-validator.sh <validator_address>"
-    exit 1
+if [[ "$#" -ne 1 ]]; then
+  echo "Usage: ./scripts/add-validator.sh <validator_address>"
+  exit 1
 fi
 
-VALIDATOR_ADDRESS=$1
+VALIDATOR_ADDRESS="$1"
+RPC_URL="${RPC_URL:-http://127.0.0.1:8545}"
 
-echo "Proposing new validator: $VALIDATOR_ADDRESS"
-
-geth attach http://127.0.0.1:8545 << EOF
-clique.propose('$VALIDATOR_ADDRESS', true)
-EOF
+echo "Proposing validator on ${RPC_URL}: ${VALIDATOR_ADDRESS}"
+geth attach "${RPC_URL}" <<EOF_INNER
+clique.propose('${VALIDATOR_ADDRESS}', true)
+EOF_INNER
