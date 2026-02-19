@@ -30,3 +30,5 @@ Telemedicine-Remote-Monitoring-System/blockchain-network/node*/keystore/
 # Local-only research artifacts
 BDF draft check1.pdf
 
+# Private commercial extension implementation
+Telemedicine-Remote-Monitoring-System/extensions/commercial/hooks.local.js
