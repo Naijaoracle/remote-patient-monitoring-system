@@ -1,0 +1,23 @@
+flowchart TB
+  subgraph CURRENT[Current Local Demo Architecture]
+    UI[Portal UI\nportal.html] --> API[Local Demo API\nportal-server.js]
+    API --> BLE[BLEService.js\nSimulated Peripheral]
+    API --> CRYPTO[CryptoUtils.js\nSign/Verify]
+    API --> BC[BlockchainService.js\nValidation + Replay Checks]
+    BC --> MEM[(In-memory Ledger)]
+  end
+
+  subgraph TARGET[Target System Architecture]
+    D[Peripheral Medical Device\nBLE Sensor]
+    C[Central Device\nPhone/Central Processor]
+    V[PoA Validator Network\nHealthcare Providers]
+    M[Measurement Contract]
+    L[(Immutable Ledger)]
+    H[Provider Dashboard / EHR Consumer]
+
+    D -->|Signed measurement| C
+    C -->|Second signature + timestamp| V
+    V -->|Policy validation| M
+    M --> L
+    L --> H
+  end

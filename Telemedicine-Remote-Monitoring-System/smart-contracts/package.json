@@ -2,11 +2,20 @@
     "name": "smart-contracts",
     "version": "1.0.0",
     "description": "Smart contracts for the Telemedicine Remote Monitoring System",
-    "main": "truffle-config.js",
+    "main": "hardhat.config.js",
     "scripts": {
       "test": "truffle test",
+      "compile": "truffle compile",
       "migrate": "truffle migrate",
-      "compile": "truffle compile"
+      "test:truffle": "truffle test",
+      "compile:truffle": "truffle compile",
+      "migrate:truffle": "truffle migrate",
+      "compile:hardhat": "hardhat compile",
+      "test:hardhat": "hardhat test",
+      "node:hardhat": "hardhat node",
+      "deploy:hardhat": "hardhat run scripts/hardhat-deploy.js --network hardhat",
+      "test:foundry": "~/.foundry/bin/forge test -vv",
+      "test:foundry:invariant": "~/.foundry/bin/forge test --match-path 'foundry-test/invariant/*.t.sol' -vvv"
     },
     "keywords": [
       "solidity",
@@ -20,7 +29,10 @@
       "@truffle/hdwallet-provider": "^1.4.0"
     },
     "devDependencies": {
+      "@nomicfoundation/hardhat-ethers": "^3.1.0",
       "truffle": "^5.4.0",
+      "hardhat": "^2.22.17",
+      "ethers": "^6.15.0",
       "chai": "^4.3.4",
       "mocha": "^8.4.0"
     }

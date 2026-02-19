@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RPM Proof-of-Proximity Demo</title>
+  <style>
+    :root {
+      --bg: #f3f7f2;
+      --card: #ffffff;
+      --ink: #0e1f14;
+      --muted: #4a6252;
+      --ok: #146c2e;
+      --warn: #9f5b00;
+      --danger: #8f1212;
+      --line: #d4dfd2;
+      --accent: #1f6f4a;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, #dbe9d7 0, transparent 35%),
+        radial-gradient(circle at 90% 20%, #d2e8dc 0, transparent 30%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px 32px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .banner {
+      background: #fff3d9;
+      border: 2px solid #d89b2d;
+      color: #5f3900;
+      border-radius: 12px;
+      padding: 14px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      grid-column: span 12;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(21, 48, 31, 0.06);
+    }
+
+    .card.half { grid-column: span 6; }
+    @media (max-width: 900px) {
+      .card.half { grid-column: span 12; }
+    }
+
+    h1 { margin: 0 0 6px; font-size: 1.5rem; }
+    h2 { margin: 0 0 10px; font-size: 1rem; }
+    p, li { color: var(--muted); }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    button.alt { background: #2b4b39; }
+    button.warn { background: var(--warn); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 10px;
+      font-size: 0.95rem;
+      margin: 4px 0 8px;
+    }
+
+    .status {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #f6faf7;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 10px;
+      min-height: 46px;
+      white-space: pre-wrap;
+    }
+
+    .status.ok { border-left-color: var(--ok); }
+    .status.err { border-left-color: var(--danger); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 6px;
+      vertical-align: top;
+    }
+
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: #e6f4ea;
+      color: var(--ok);
+    }
+
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="banner">
+      DEMO ONLY: This page is for local prototyping. It is not production-safe, does not use hardware-backed keys, and stores data in browser memory only.
+    </div>
+
+    <div class="card">
+      <h1>Remote Patient Monitoring Demo</h1>
+      <p>Single-file browser simulation of BLE proximity payload, double-signing, validation, replay checks, and immutable-style in-memory ledger.</p>
+      <div id="status" class="status">Ready.</div>
+    </div>
+
+    <div class="grid">
+      <section class="card half">
+        <h2>1) Device & Validator Setup</h2>
+        <label>Device ID</label>
+        <input id="deviceId" value="0x0000000000000000000000000000000000000101" />
+        <label>Central ID</label>
+        <input id="centralId" value="0x0000000000000000000000000000000000000201" />
+        <label>Validator ID</label>
+        <input id="validatorId" value="0x0000000000000000000000000000000000000301" />
+        <div class="row">
+          <button id="initBtn">Initialize Demo Keys</button>
+          <button id="resetBtn" class="warn">Reset Demo State</button>
+        </div>
+      </section>
+
+      <section class="card half">
+        <h2>2) Measurement</h2>
+        <label>Type</label>
+        <select id="measureType">
+          <option value="heart_rate">heart_rate</option>
+          <option value="spo2">spo2</option>
+          <option value="glucose">glucose</option>
+          <option value="blood_pressure">blood_pressure</option>
+        </select>
+        <label>Value</label>
+        <input id="measureValue" value="75" />
+        <label>Unit</label>
+        <input id="measureUnit" value="bpm" />
+        <div class="row">
+          <button id="submitBtn" class="alt">Submit Signed Measurement</button>
+          <button id="replayBtn" class="warn">Replay Last Challenge (Should Fail)</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>3) Ledger</h2>
+      <p><span class="pill">In-memory only</span> Records disappear on page refresh.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Tx Hash</th>
+            <th>Measurement</th>
+            <th>Timestamps</th>
+            <th>Validator</th>
+            <th>Challenge (hashed)</th>
+          </tr>
+        </thead>
+        <tbody id="ledgerBody"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      device: null,
+      central: null,
+      validatorId: null,
+      usedChallenges: new Set(),
+      ledger: new Map(),
+      lastPayload: null,
+      PROXIMITY_WINDOW_SECONDS: 15,
+      MAX_CLOCK_SKEW_SECONDS: 30,
+    };
+
+    const el = {
+      status: document.getElementById('status'),
+      deviceId: document.getElementById('deviceId'),
+      centralId: document.getElementById('centralId'),
+      validatorId: document.getElementById('validatorId'),
+      measureType: document.getElementById('measureType'),
+      measureValue: document.getElementById('measureValue'),
+      measureUnit: document.getElementById('measureUnit'),
+      ledgerBody: document.getElementById('ledgerBody'),
+      initBtn: document.getElementById('initBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      submitBtn: document.getElementById('submitBtn'),
+      replayBtn: document.getElementById('replayBtn'),
+    };
+
+    function setStatus(text, type = '') {
+      el.status.className = `status ${type}`.trim();
+      el.status.textContent = text;
+    }
+
+    function bytesToHex(buffer) {
+      return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function b64FromArrayBuffer(buffer) {
+      let bin = '';
+      const bytes = new Uint8Array(buffer);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      return btoa(bin);
+    }
+
+    function arrayBufferFromB64(b64) {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out.buffer;
+    }
+
+    function canonicalize(value) {
+      if (value === null || typeof value !== 'object') return JSON.stringify(value);
+      if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
+      const keys = Object.keys(value).sort();
+      return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalize(value[k])}`).join(',')}}`;
+    }
+
+    async function sha256Hex(input) {
+      const data = new TextEncoder().encode(input);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return bytesToHex(digest);
+    }
+
+    async function genEcdsaKeyPair() {
+      return crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        ['sign', 'verify']
+      );
+    }
+
+    async function signData(data, privateKey) {
+      const payload = new TextEncoder().encode(canonicalize(data));
+      const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privateKey, payload);
+      return b64FromArrayBuffer(sig);
+    }
+
+    async function verifyData(data, signatureB64, publicKey) {
+      try {
+        const payload = new TextEncoder().encode(canonicalize(data));
+        return crypto.subtle.verify(
+          { name: 'ECDSA', hash: 'SHA-256' },
+          publicKey,
+          arrayBufferFromB64(signatureB64),
+          payload
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    function nowSec() { return Math.floor(Date.now() / 1000); }
+
+    function randomChallenge() {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function renderLedger() {
+      const rows = [...state.ledger.entries()].reverse();
+      el.ledgerBody.innerHTML = rows.map(([txHash, rec]) => `
+        <tr>
+          <td class="mono">${txHash.slice(0, 16)}...</td>
+          <td class="mono">${rec.measurementData.type}:${rec.measurementData.value} ${rec.measurementData.unit}</td>
+          <td class="mono">P:${rec.timestampPeripheral}<br/>C:${rec.timestampCentral}</td>
+          <td>${rec.validatedBy}</td>
+          <td class="mono">${rec.challengeHash.slice(0, 16)}...</td>
+        </tr>
+      `).join('');
+    }
+
+    async function initialize() {
+      const deviceId = el.deviceId.value.trim();
+      const centralId = el.centralId.value.trim();
+      const validatorId = el.validatorId.value.trim();
+      if (!deviceId || !centralId || !validatorId) {
+        setStatus('Missing Device ID, Central ID, or Validator ID.', 'err');
+        return;
+      }
+
+      const [deviceKeys, centralKeys] = await Promise.all([genEcdsaKeyPair(), genEcdsaKeyPair()]);
+      state.device = { id: deviceId, keys: deviceKeys };
+      state.central = { id: centralId, keys: centralKeys };
+      state.validatorId = validatorId;
+      state.usedChallenges.clear();
+      state.ledger.clear();
+      state.lastPayload = null;
+      renderLedger();
+      setStatus(`Initialized demo keys for ${deviceId} and ${centralId}.`, 'ok');
+    }
+
+    async function buildAndSubmit({ forceReplay = false } = {}) {
+      if (!state.device || !state.central || !state.validatorId) {
+        setStatus('Initialize demo keys first.', 'err');
+        return;
+      }
+
+      const measurementData = {
+        type: el.measureType.value,
+        value: el.measureValue.value,
+        unit: el.measureUnit.value,
+      };
+
+      const timestampPeripheral = nowSec();
+      const timestampCentral = nowSec();
+      const challenge = forceReplay && state.lastPayload ? state.lastPayload.challenge : randomChallenge();
+
+      const peripheralPayload = {
+        deviceAddress: state.device.id,
+        centralDeviceAddress: state.central.id,
+        timestampPeripheral,
+        challenge,
+        measurementData,
+      };
+
+      const peripheralSignature = await signData(peripheralPayload, state.device.keys.privateKey);
+
+      const centralPayload = {
+        ...peripheralPayload,
+        peripheralSignature,
+        timestampCentral,
+      };
+
+      const centralSignature = await signData(centralPayload, state.central.keys.privateKey);
+
+      const full = { ...centralPayload, centralSignature };
+
+      const isPeripheralValid = await verifyData(
+        peripheralPayload,
+        full.peripheralSignature,
+        state.device.keys.publicKey
+      );
+      const isCentralValid = await verifyData(
+        centralPayload,
+        full.centralSignature,
+        state.central.keys.publicKey
+      );
+
+      if (!isPeripheralValid) {
+        setStatus('Rejected: invalid peripheral signature.', 'err');
+        return;
+      }
+      if (!isCentralValid) {
+        setStatus('Rejected: invalid central signature.', 'err');
+        return;
+      }
+
+      if (Math.abs(full.timestampCentral - full.timestampPeripheral) > state.PROXIMITY_WINDOW_SECONDS) {
+        setStatus('Rejected: proximity window exceeded.', 'err');
+        return;
+      }
+
+      if (Math.abs(nowSec() - full.timestampCentral) > state.MAX_CLOCK_SKEW_SECONDS) {
+        setStatus('Rejected: stale measurement.', 'err');
+        return;
+      }
+
+      if (state.usedChallenges.has(full.challenge)) {
+        setStatus('Rejected: replay detected (challenge already used).', 'err');
+        return;
+      }
+
+      const challengeHash = await sha256Hex(full.challenge);
+      const measurementHash = await sha256Hex(canonicalize(centralPayload));
+      const txHash = '0x' + await sha256Hex(canonicalize({ full, measurementHash, challengeHash, i: state.ledger.size }));
+
+      state.usedChallenges.add(full.challenge);
+      state.lastPayload = full;
+      state.ledger.set(txHash, {
+        ...full,
+        validatedBy: state.validatorId,
+        validatedAt: nowSec(),
+        challengeHash: '0x' + challengeHash,
+        measurementHash: '0x' + measurementHash,
+      });
+
+      renderLedger();
+      setStatus(`Accepted and recorded.
+Tx: ${txHash}
+Measurement hash: 0x${measurementHash.slice(0, 20)}...
+Challenge hash: 0x${challengeHash.slice(0, 20)}...`, 'ok');
+    }
+
+    function resetAll() {
+      state.device = null;
+      state.central = null;
+      state.validatorId = null;
+      state.usedChallenges.clear();
+      state.ledger.clear();
+      state.lastPayload = null;
+      renderLedger();
+      setStatus('State reset. Initialize demo keys to continue.');
+    }
+
+    el.initBtn.addEventListener('click', () => initialize().catch((e) => setStatus(`Error: ${e.message}`, 'err')));
+    el.submitBtn.addEventListener('click', () => buildAndSubmit().catch((e) => setStatus(`Error: ${e.message}`, 'err')));
+    el.replayBtn.addEventListener('click', () => buildAndSubmit({ forceReplay: true }).catch((e) => setStatus(`Error: ${e.message}`, 'err')));
+    el.resetBtn.addEventListener('click', resetAll);
+  </script>
+</body>
+</html>

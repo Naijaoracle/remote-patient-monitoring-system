@@ -1,0 +1,55 @@
+# Phase 4 Notes (Current Slice)
+
+Implemented in this step:
+- Consent enforcement before measurement submission:
+  - `POST /api/submit` now requires `patientId`
+  - submission is rejected when consent is missing or expired
+- Consent API and log:
+  - `POST /api/consent` to grant/revoke consent
+  - `GET /api/consent/:patientId` to read latest consent and active status
+  - persisted in `demo/.data/consent.jsonl`
+- Consent policy hardening:
+  - policy dimensions include `purpose` and `actorId`
+  - consent supports `purposes[]` and `allowedActorIds[]`
+  - submission requires `patientId`, `purpose`, and `actorId`
+  - actor identity registry added with `role`, `org`, `scopes`, `active`
+  - consent supports `allowedRoles[]`, `allowedOrgs[]`, `requiredScopes[]`
+  - submit path enforces actor active status + role/org/scope constraints
+- Audit export and monitoring:
+  - `GET /api/audit/export` with `from`, `to`, `limit` query support
+  - `GET /api/audit/package` returns signed package:
+    - manifest (`payloadHash`, filter metadata, entry count)
+    - signature metadata + value
+    - entries payload
+  - `GET /api/monitor/summary` returns operational counters from audit entries
+  - `GET /api/monitor/alerts` returns persisted anomaly alerts
+  - `GET /api/monitor/validators` returns validator telemetry summary + events
+  - `GET /api/monitor/proposals` returns proposal telemetry summary + events
+  - `POST /api/monitor/proposals` ingests proposal lifecycle events
+  - `POST /api/monitor/proposals/sync` indexes proposal events from chain RPC
+  - optional background sync worker:
+    - `CHAIN_SYNC_INTERVAL_SECONDS`
+    - `CHAIN_REORG_LOOKBACK_BLOCKS` for overlap/reorg tolerance
+  - alert rules (windowed threshold + cooldown):
+    - `unauthorized_spike`
+    - `submit_failure_spike`
+    - `validator_failure_spike`
+    - `validator_gas_spike`
+    - `proposal_failure_spike`
+    - `proposal_pending_backlog`
+  - alerts are persisted in `demo/.data/alerts.log.jsonl`
+  - validator telemetry is persisted in `demo/.data/validator-telemetry.jsonl`
+  - proposal telemetry is persisted in `demo/.data/proposal-telemetry.jsonl`
+  - chain index cursor persisted in `demo/.data/chain-indexer-state.json`
+  - audit signer supports `keystore` or `remote` modes (`AUDIT_SIGNER_MODE`)
+  - audit signing key lifecycle:
+    - `GET /api/audit/keys` for key history
+    - `POST /api/audit/rotate-key` to rotate active signing key
+    - history persisted in `demo/.data/audit-signing-keys.json`
+  - verification CLI:
+    - `scripts/verify-audit-package.js`
+
+Still pending in broader Phase 4:
+- Full consent policy engine (purpose-of-use, revocation propagation, user identity model)
+- Compliance hardening beyond demo key lifecycle (hardware-backed signer, remote key management, formal export schema governance)
+- Advanced anomaly detection tied to real validator identities and chain telemetry

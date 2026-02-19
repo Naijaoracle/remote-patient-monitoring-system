@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-label="RPM architecture diagram">
+  <defs>
+    <style>
+      .title { font: 700 24px 'IBM Plex Sans', 'Segoe UI', sans-serif; fill: #0f172a; }
+      .subtitle { font: 600 18px 'IBM Plex Sans', 'Segoe UI', sans-serif; fill: #0f172a; }
+      .label { font: 500 14px 'IBM Plex Sans', 'Segoe UI', sans-serif; fill: #102a43; }
+      .small { font: 500 12px 'IBM Plex Sans', 'Segoe UI', sans-serif; fill: #334e68; }
+      .box { fill: #ffffff; stroke: #bfd3e6; stroke-width: 2; rx: 12; }
+      .group { fill: #f8fbff; stroke: #d9e7f5; stroke-width: 2; rx: 16; }
+      .arrow { stroke: #1565c0; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead); }
+      .arrow2 { stroke: #1f7a4d; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead2); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1565c0" />
+    </marker>
+    <marker id="arrowhead2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1f7a4d" />
+    </marker>
+  </defs>
+
+  <rect x="20" y="20" width="1360" height="860" fill="#f3f7fc" stroke="#d8e5f2" rx="18" />
+  <text x="50" y="65" class="title">Remote Patient Monitoring System Architecture</text>
+
+  <!-- Current Demo Group -->
+  <rect x="50" y="95" width="1300" height="330" class="group" />
+  <text x="70" y="130" class="subtitle">Current Local Demo (Implemented)</text>
+
+  <rect x="90" y="165" width="210" height="90" class="box" />
+  <text x="105" y="200" class="label">Portal UI</text>
+  <text x="105" y="220" class="small">demo/portal.html</text>
+
+  <rect x="350" y="165" width="230" height="90" class="box" />
+  <text x="365" y="197" class="label">Local Demo API</text>
+  <text x="365" y="217" class="small">demo/portal-server.js</text>
+
+  <rect x="630" y="130" width="220" height="80" class="box" />
+  <text x="645" y="162" class="label">BLEService.js</text>
+  <text x="645" y="182" class="small">Simulated peripheral flow</text>
+
+  <rect x="630" y="225" width="220" height="80" class="box" />
+  <text x="645" y="257" class="label">CryptoUtils.js</text>
+  <text x="645" y="277" class="small">Sign / verify payloads</text>
+
+  <rect x="900" y="165" width="260" height="90" class="box" />
+  <text x="915" y="197" class="label">BlockchainService.js</text>
+  <text x="915" y="217" class="small">Validation + replay checks</text>
+
+  <rect x="1200" y="165" width="120" height="90" class="box" />
+  <text x="1210" y="200" class="label">Ledger</text>
+  <text x="1210" y="220" class="small">In-memory</text>
+
+  <path d="M300 210 L350 210" class="arrow" />
+  <path d="M580 210 L630 170" class="arrow" />
+  <path d="M580 210 L630 265" class="arrow" />
+  <path d="M850 170 L900 200" class="arrow" />
+  <path d="M850 265 L900 220" class="arrow" />
+  <path d="M1160 210 L1200 210" class="arrow" />
+
+  <!-- Target Group -->
+  <rect x="50" y="460" width="1300" height="380" class="group" />
+  <text x="70" y="495" class="subtitle">Target Production Flow</text>
+
+  <rect x="90" y="550" width="210" height="100" class="box" />
+  <text x="105" y="585" class="label">Peripheral Device</text>
+  <text x="105" y="605" class="small">BLE sensor</text>
+
+  <rect x="350" y="550" width="240" height="100" class="box" />
+  <text x="365" y="585" class="label">Central Device</text>
+  <text x="365" y="605" class="small">Phone / central processor</text>
+
+  <rect x="640" y="550" width="260" height="100" class="box" />
+  <text x="655" y="585" class="label">PoA Validators</text>
+  <text x="655" y="605" class="small">Healthcare provider network</text>
+
+  <rect x="950" y="550" width="180" height="100" class="box" />
+  <text x="965" y="585" class="label">Measurement</text>
+  <text x="965" y="605" class="small">Smart contract</text>
+
+  <rect x="1180" y="550" width="150" height="100" class="box" />
+  <text x="1195" y="585" class="label">Immutable</text>
+  <text x="1195" y="605" class="small">Ledger</text>
+
+  <rect x="950" y="700" width="280" height="90" class="box" />
+  <text x="965" y="735" class="label">Provider Dashboard / EHR</text>
+  <text x="965" y="755" class="small">Validated patient records</text>
+
+  <path d="M300 600 L350 600" class="arrow2" />
+  <text x="305" y="585" class="small">Signed measurement</text>
+
+  <path d="M590 600 L640 600" class="arrow2" />
+  <text x="590" y="585" class="small">2nd signature + timestamp</text>
+
+  <path d="M900 600 L950 600" class="arrow2" />
+  <text x="900" y="585" class="small">Validation pass</text>
+
+  <path d="M1130 600 L1180 600" class="arrow2" />
+  <path d="M1255 650 L1255 700" class="arrow2" />
+
+  <text x="70" y="820" class="small">Note: Current demo keeps keys and records in memory. Production requires hardware-backed key storage, persistent data, and access controls.</text>
+</svg>

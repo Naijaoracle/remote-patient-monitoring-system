@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RPM Interaction Portal (Demo)</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #dbe3ef;
+      --accent: #0b6f57;
+      --warn-bg: #fff1c9;
+      --warn-border: #d3932f;
+      --danger: #a11b1b;
+      --ok: #17663b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: linear-gradient(160deg, #e9f0fb 0%, #f7fbf8 100%);
+      color: var(--ink);
+    }
+    .wrap {
+      max-width: 1080px;
+      margin: 20px auto;
+      padding: 0 14px 20px;
+      display: grid;
+      gap: 12px;
+    }
+    .banner {
+      background: var(--warn-bg);
+      border: 2px solid var(--warn-border);
+      border-radius: 10px;
+      padding: 12px;
+      font-weight: 700;
+      color: #5d3500;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+    .half { grid-column: span 6; }
+    .full { grid-column: span 12; }
+    @media (max-width: 880px) { .half { grid-column: span 12; } }
+    h1 { margin: 0 0 6px; font-size: 1.4rem; }
+    h2 { margin: 0 0 10px; font-size: 1rem; }
+    p { margin: 6px 0; color: var(--muted); }
+    label { font-size: 0.86rem; color: var(--muted); display: block; margin-top: 6px; }
+    input, select {
+      width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; margin-top: 4px;
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    button {
+      border: 0; border-radius: 8px; padding: 9px 12px; font-weight: 700;
+      background: var(--accent); color: #fff; cursor: pointer;
+    }
+    button.alt { background: #2c4363; }
+    button.warn { background: #9a5a00; }
+    .status {
+      background: #f8fbff;
+      border: 1px solid var(--line);
+      border-left: 4px solid #2c4363;
+      border-radius: 8px;
+      padding: 10px;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .status.ok { border-left-color: var(--ok); }
+    .status.err { border-left-color: var(--danger); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 7px 5px; vertical-align: top; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="banner">DEMO ONLY: Not production-safe. Keys are ephemeral and data is in-memory.</div>
+    <div class="card">
+      <h1>RPM Interaction Portal</h1>
+      <p>This UI talks to local repo code via <span class="mono">portal-server.js</span>.</p>
+      <div id="status" class="status">Portal ready. Initialize system first.</div>
+    </div>
+
+    <div class="grid">
+      <section class="card half">
+        <h2>System Init</h2>
+        <label>Device ID</label>
+        <input id="deviceId" value="0x0000000000000000000000000000000000000101" />
+        <label>Central ID</label>
+        <input id="centralId" value="0x0000000000000000000000000000000000000201" />
+        <label>Validator ID</label>
+        <input id="validatorId" value="0x0000000000000000000000000000000000000301" />
+        <label>API Key (optional)</label>
+        <input id="apiKey" type="password" placeholder="Set when DEMO_API_KEY is enabled on server" />
+        <label>Actor ID (operator/clinician identity)</label>
+        <input id="actorId" value="clinician-demo-1" />
+        <label>Actor Role</label>
+        <input id="actorRole" value="doctor" />
+        <label>Actor Org</label>
+        <input id="actorOrg" value="hospital-a" />
+        <label>Actor Scopes (comma-separated)</label>
+        <input id="actorScopes" value="vitals:read,vitals:write" />
+        <div class="row">
+          <button id="registerActorBtn" class="alt">Register Actor</button>
+          <button id="initBtn">Initialize</button>
+          <button id="resetBtn" class="warn">Reset</button>
+          <button id="healthBtn" class="alt">Check Health</button>
+        </div>
+      </section>
+
+      <section class="card half">
+        <h2>Submit Measurement</h2>
+        <label>Patient ID</label>
+        <input id="patientId" value="patient-demo-1" />
+        <label>Type</label>
+        <select id="type">
+          <option value="heart_rate">heart_rate</option>
+          <option value="spo2">spo2</option>
+          <option value="glucose">glucose</option>
+          <option value="blood_pressure">blood_pressure</option>
+        </select>
+        <label>Value</label>
+        <input id="value" value="75" />
+        <label>Unit</label>
+        <input id="unit" value="bpm" />
+        <label>Purpose</label>
+        <input id="purpose" value="treatment" />
+        <div class="row">
+          <button id="grantConsentBtn" class="alt">Grant Consent</button>
+          <button id="viewConsentBtn" class="alt">View Consent</button>
+        </div>
+        <div class="row">
+          <button id="submitBtn">Submit</button>
+          <button id="replayBtn" class="warn">Replay Last Challenge</button>
+          <button id="refreshBtn" class="alt">Refresh Ledger</button>
+        </div>
+      </section>
+
+      <section class="card full">
+        <h2>Ledger</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Tx Hash</th>
+              <th>Measurement</th>
+              <th>Timestamps</th>
+              <th>Validator</th>
+              <th>Challenge</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody"></tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const ledgerBody = document.getElementById('ledgerBody');
+
+    function setStatus(msg, type = '') {
+      statusEl.className = `status ${type}`.trim();
+      statusEl.textContent = msg;
+    }
+
+    async function api(path, method = 'GET', body) {
+      const headers = { 'Content-Type': 'application/json' };
+      const key = document.getElementById('apiKey').value.trim();
+      if (key) {
+        headers['x-api-key'] = key;
+      }
+      const actorId = document.getElementById('actorId').value.trim();
+      if (actorId) {
+        headers['x-actor-id'] = actorId;
+      }
+      const res = await fetch(path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      return data;
+    }
+
+    function renderLedger(items) {
+      ledgerBody.innerHTML = items.slice().reverse().map((row) => {
+        const r = row.record;
+        return `
+          <tr>
+            <td class="mono">${row.txHash.slice(0, 18)}...</td>
+            <td class="mono">${r.measurementData.type}:${r.measurementData.value} ${r.measurementData.unit}</td>
+            <td class="mono">P:${r.timestampPeripheral}<br/>C:${r.timestampCentral}</td>
+            <td>${r.validatedBy}</td>
+            <td class="mono">${(r.challengeHash || '').slice(0, 18)}...</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function refreshLedger() {
+      const data = await api('/api/ledger');
+      renderLedger(data.ledger || []);
+      return data;
+    }
+
+    document.getElementById('initBtn').addEventListener('click', async () => {
+      try {
+        const data = await api('/api/init', 'POST', {
+          deviceId: document.getElementById('deviceId').value,
+          centralId: document.getElementById('centralId').value,
+          validatorId: document.getElementById('validatorId').value,
+        });
+        await refreshLedger();
+        setStatus(`Initialized.\nDevice: ${data.deviceId}\nCentral: ${data.centralId}\nValidator: ${data.validatorId}`, 'ok');
+      } catch (error) {
+        setStatus(`Init error: ${error.message}`, 'err');
+      }
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      try {
+        const data = await api('/api/submit', 'POST', {
+          patientId: document.getElementById('patientId').value,
+          purpose: document.getElementById('purpose').value,
+          type: document.getElementById('type').value,
+          value: document.getElementById('value').value,
+          unit: document.getElementById('unit').value,
+        });
+        await refreshLedger();
+        setStatus(`Accepted.\nTx: ${data.txHash}`, 'ok');
+      } catch (error) {
+        setStatus(`Submit rejected: ${error.message}`, 'err');
+      }
+    });
+
+    document.getElementById('replayBtn').addEventListener('click', async () => {
+      try {
+        await api('/api/submit', 'POST', {
+          patientId: document.getElementById('patientId').value,
+          purpose: document.getElementById('purpose').value,
+          type: document.getElementById('type').value,
+          value: document.getElementById('value').value,
+          unit: document.getElementById('unit').value,
+          replay: true,
+        });
+        setStatus('Unexpected replay success (check backend logic).', 'err');
+      } catch (error) {
+        setStatus(`Replay rejected as expected: ${error.message}`, 'ok');
+      }
+      try { await refreshLedger(); } catch (_e) {}
+    });
+
+    document.getElementById('healthBtn').addEventListener('click', async () => {
+      try {
+        const data = await api('/api/health');
+        setStatus(`Health ok.\nInitialized: ${data.initialized}\nDevice: ${data.deviceId || '-'}\nCentral: ${data.centralId || '-'}`, 'ok');
+      } catch (error) {
+        setStatus(`Health error: ${error.message}`, 'err');
+      }
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      try {
+        await api('/api/reset', 'POST', {});
+        await refreshLedger();
+        setStatus('Reset complete.', 'ok');
+      } catch (error) {
+        setStatus(`Reset error: ${error.message}`, 'err');
+      }
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+      try {
+        const data = await refreshLedger();
+        setStatus(`Ledger refreshed. Entries: ${data.ledger.length}`, 'ok');
+      } catch (error) {
+        setStatus(`Refresh error: ${error.message}`, 'err');
+      }
+    });
+
+    document.getElementById('grantConsentBtn').addEventListener('click', async () => {
+      try {
+        const patientId = document.getElementById('patientId').value;
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        await api('/api/consent', 'POST', {
+          patientId,
+          granted: true,
+          reason: 'demo-session',
+          purposes: [document.getElementById('purpose').value || 'treatment'],
+          allowedActorIds: [document.getElementById('actorId').value || 'clinician-demo-1'],
+          allowedRoles: [document.getElementById('actorRole').value || 'doctor'],
+          allowedOrgs: [document.getElementById('actorOrg').value || 'hospital-a'],
+          requiredScopes: ['vitals:write'],
+          expiresAt,
+        });
+        setStatus(`Consent granted for ${patientId} until ${expiresAt}`, 'ok');
+      } catch (error) {
+        setStatus(`Consent grant failed: ${error.message}`, 'err');
+      }
+    });
+
+    document.getElementById('viewConsentBtn').addEventListener('click', async () => {
+      try {
+        const patientId = encodeURIComponent(document.getElementById('patientId').value);
+        const purpose = encodeURIComponent(document.getElementById('purpose').value || '');
+        const actorId = encodeURIComponent(document.getElementById('actorId').value || '');
+        const data = await api(`/api/consent/${patientId}?purpose=${purpose}&actorId=${actorId}`);
+        setStatus(`Consent for ${data.patientId}\nActive: ${data.active}\nReason: ${data.reason}\nGranted: ${data.consent.granted}\nExpires: ${data.consent.expiresAt || 'none'}`, 'ok');
+      } catch (error) {
+        setStatus(`Consent lookup failed: ${error.message}`, 'err');
+      }
+    });
+
+    document.getElementById('registerActorBtn').addEventListener('click', async () => {
+      try {
+        const scopes = document.getElementById('actorScopes').value
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const actor = await api('/api/actors', 'POST', {
+          actorId: document.getElementById('actorId').value,
+          role: document.getElementById('actorRole').value,
+          org: document.getElementById('actorOrg').value,
+          scopes,
+          active: true,
+        });
+        setStatus(`Actor registered: ${actor.actor.actorId} (${actor.actor.role}/${actor.actor.org})`, 'ok');
+      } catch (error) {
+        setStatus(`Actor registration failed: ${error.message}`, 'err');
+      }
+    });
+  </script>
+</body>
+</html>

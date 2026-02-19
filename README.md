@@ -21,3 +21,10 @@ project.
 
 This project is still a work in progress and is not for use in a 
 production environment (just a reminder).
+
+## Public repo hygiene
+
+- Keep secrets in untracked env files. See `Telemedicine-Remote-Monitoring-System/.env.example`.
+- Runtime demo data and generated node secrets are gitignored.
+- Commercial extensions should stay in a private repo/module.
+- Optional private extension hook lives at `Telemedicine-Remote-Monitoring-System/extensions/commercial/hooks.local.js` (gitignored).

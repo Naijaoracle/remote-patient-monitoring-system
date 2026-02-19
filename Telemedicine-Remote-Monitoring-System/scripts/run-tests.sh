@@ -8,8 +8,8 @@ echo "Running smart contract tests..."
 cd ../smart-contracts/
 truffle test
 
-echo "Running mobile app tests..."
-cd ../mobile-app/
+echo "Running JavaScript unit/integration tests..."
+cd ..
 npm test
 
 echo "Running BLE device firmware tests..."

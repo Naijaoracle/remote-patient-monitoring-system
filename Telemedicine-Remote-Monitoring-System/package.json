@@ -1,0 +1,18 @@
+{
+  "name": "telemedicine-remote-monitoring-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototype services and tests for proof-of-proximity remote patient monitoring",
+  "optionalDependencies": {
+    "rpm-commercial-hooks": "file:../../rpm-commercial-hooks"
+  },
+  "scripts": {
+    "lint": "bash scripts/lint-static.sh",
+    "static": "bash scripts/lint-static.sh",
+    "test": "node --test test/unit/*.test.js test/integration/*.test.js",
+    "demo:portal": "node demo/portal-server.js",
+    "audit:verify": "node scripts/verify-audit-package.js",
+    "security:baseline": "bash scripts/security-baseline.sh",
+    "ci:check": "npm run lint && npm test"
+  }
+}
