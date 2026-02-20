@@ -19,7 +19,7 @@ require_cmd() {
 extract_address() {
   local output="$1"
   local address
-  address="$(printf '%s\n' "$output" | sed -n "s/.*{\([0-9a-fA-F]\{40\)}.*/\1/p" | head -n1)"
+  address="$(printf '%s\n' "$output" | grep -Eo '0x[0-9a-fA-F]{40}' | head -n1 | sed 's/^0x//')"
   if [[ -z "$address" ]]; then
     echo "Failed to parse account address from: $output" >&2
     exit 1
@@ -43,8 +43,12 @@ ensure_account() {
   ensure_password_file "$node_dir"
 
   if [[ -f "$account_file" ]]; then
-    cat "$account_file"
-    return
+    local existing
+    existing="$(tr -d '[:space:]' < "$account_file" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$existing" =~ ^[0-9a-f]{40}$ ]]; then
+      printf '%s\n' "$existing"
+      return
+    fi
   fi
 
   local output address
@@ -83,6 +87,8 @@ write_genesis() {
     "istanbulBlock": 0,
     "berlinBlock": 0,
     "londonBlock": 0,
+    "terminalTotalDifficulty": 9223372036854775807,
+    "terminalTotalDifficultyPassed": false,
     "clique": {
       "period": 2,
       "epoch": 30000
@@ -125,6 +131,7 @@ main() {
 
   write_genesis "$signer1" "$signer2"
 
+  rm -rf "${NODE1_DIR}/geth" "${NODE2_DIR}/geth"
   init_node "$NODE1_DIR"
   init_node "$NODE2_DIR"
 

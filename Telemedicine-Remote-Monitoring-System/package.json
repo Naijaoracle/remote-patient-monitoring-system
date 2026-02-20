@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "description": "Prototype services and tests for proof-of-proximity remote patient monitoring",
-  "optionalDependencies": {
-    "rpm-commercial-hooks": "file:../../rpm-commercial-hooks"
-  },
   "scripts": {
     "lint": "bash scripts/lint-static.sh",
     "static": "bash scripts/lint-static.sh",

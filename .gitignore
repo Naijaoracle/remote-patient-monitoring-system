@@ -21,6 +21,7 @@ Telemedicine-Remote-Monitoring-System/reports/
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/nodekey
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/password.txt
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/account.txt
+Telemedicine-Remote-Monitoring-System/blockchain-network/node*/history
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/geth/
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/keystore/
 
@@ -31,5 +32,5 @@ Telemedicine-Remote-Monitoring-System/blockchain-network/node*/keystore/
 # Local-only research artifacts
 BDF draft check1.pdf
 
-# Private commercial extension implementation
-Telemedicine-Remote-Monitoring-System/extensions/commercial/hooks.local.js
+# Optional local hook implementation
+Telemedicine-Remote-Monitoring-System/extensions/hooks/hooks.local.js

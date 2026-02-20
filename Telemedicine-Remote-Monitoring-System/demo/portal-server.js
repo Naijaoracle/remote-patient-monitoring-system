@@ -14,7 +14,7 @@ const {
   getLastSyncedBlock,
 } = require('./chain-indexer');
 const { signWithRemoteSigner, readPemFile } = require('./remote-signer');
-const { loadCommercialHooks } = require('./commercial-hooks');
+const { loadCustomHooks } = require('./custom-hooks');
 const {
   loadAuditKeyHistory,
   getActiveAuditSigningKey,
@@ -82,7 +82,7 @@ const state = {
   txOrder: [],
   lastChallenge: null,
 };
-const commercialHooks = loadCommercialHooks();
+const customHooks = loadCustomHooks();
 
 function json(res, status, payload) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -415,7 +415,7 @@ async function initDemo(payload) {
   if (!deviceId || !centralId || !validatorId) {
     throw new Error('deviceId, centralId, and validatorId are required');
   }
-  await commercialHooks.beforeInit({
+  await customHooks.beforeInit({
     deviceId,
     centralId,
     validatorId,
@@ -482,7 +482,7 @@ async function submitMeasurement(payload, actorId) {
   if (!actor || !actor.active) {
     throw new Error('actorId is unknown or inactive');
   }
-  await commercialHooks.beforeSubmit({
+  await customHooks.beforeSubmit({
     payload,
     actorId,
     actor,
@@ -543,7 +543,7 @@ async function submitMeasurement(payload, actorId) {
   const stored = await BlockchainService.getMeasurement(txHash);
   appendEncryptedRecord(txHash, stored);
   try {
-    await commercialHooks.afterSubmit({
+    await customHooks.afterSubmit({
       txHash,
       stored,
       payload,

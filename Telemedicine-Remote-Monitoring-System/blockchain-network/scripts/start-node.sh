@@ -29,6 +29,7 @@ esac
 NODE_DIR="${ROOT_DIR}/${NODE_NAME}"
 PASSWORD_FILE="${NODE_DIR}/password.txt"
 GENESIS_FILE="${ROOT_DIR}/genesis.json"
+IPC_PATH="/tmp/rpm-${NODE_NAME}.ipc"
 
 if [[ ! -s "$GENESIS_FILE" ]]; then
   echo "Missing genesis file. Run ./scripts/bootstrap-network.sh first."
@@ -43,6 +44,7 @@ fi
 echo "Starting ${NODE_NAME} on http://${HTTP_HOST}:${HTTP_PORT}"
 exec geth \
   --datadir "$NODE_DIR" \
+  --ipcpath "$IPC_PATH" \
   --networkid "$NETWORK_ID" \
   --port "$PORT" \
   --http \

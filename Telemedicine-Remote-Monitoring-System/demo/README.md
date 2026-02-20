@@ -34,9 +34,8 @@ Optional env vars:
 - `AUDIT_SIGNER_REMOTE_ENDPOINT`: remote signer HTTP endpoint (`POST`, returns `{ "signature": "..." }`)
 - `AUDIT_SIGNER_REMOTE_KEY_ID`: key identifier recorded in signed package metadata/history
 - `AUDIT_SIGNER_REMOTE_PUBKEY_PATH`: PEM file path for remote signer public key
-- `COMMERCIAL_HOOKS_FILE`: optional path to a commercial hook module file (overrides the `rpm-commercial-hooks` npm package; use for dev/test without reinstalling)
-  - If unset, the portal tries `require('rpm-commercial-hooks')` (install via `npm install ../rpm-commercial-hooks`)
-  - If the package is not installed, the portal runs with silent no-op hooks
+- `CUSTOM_HOOKS_FILE`: optional path to a local hook module file
+  - If unset, the portal runs with silent no-op hooks
 - `MONITOR_WINDOW_SECONDS`: anomaly detection window (default `300`)
 - `UNAUTHORIZED_ALERT_THRESHOLD`: trigger count for unauthorized spike (default `5`)
 - `SUBMIT_FAILURE_ALERT_THRESHOLD`: trigger count for submit-failure spike (default `3`)

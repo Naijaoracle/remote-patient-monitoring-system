@@ -10,19 +10,13 @@ function normalizeHooks(candidate) {
   };
 }
 
-function loadCommercialHooks() {
-  const hookFile = process.env.COMMERCIAL_HOOKS_FILE;
-  if (hookFile) {
-    const loaded = require(hookFile);
-    return normalizeHooks(loaded || {});
-  }
-
-  try {
-    const loaded = require('rpm-commercial-hooks');
-    return normalizeHooks(loaded || {});
-  } catch {
+function loadCustomHooks() {
+  const hookFile = process.env.CUSTOM_HOOKS_FILE;
+  if (!hookFile) {
     return normalizeHooks({});
   }
+  const loaded = require(hookFile);
+  return normalizeHooks(loaded || {});
 }
 
-module.exports = { loadCommercialHooks };
+module.exports = { loadCustomHooks };

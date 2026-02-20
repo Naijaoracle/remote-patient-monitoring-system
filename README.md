@@ -26,5 +26,5 @@ production environment (just a reminder).
 
 - Keep secrets in untracked env files. See `Telemedicine-Remote-Monitoring-System/.env.example`.
 - Runtime demo data and generated node secrets are gitignored.
-- Commercial extensions should stay in a private repo/module.
-- Optional private extension hook lives at `Telemedicine-Remote-Monitoring-System/extensions/commercial/hooks.local.js` (gitignored).
+- Private extensions should stay in a private repo/module.
+- Optional local hook file lives at `Telemedicine-Remote-Monitoring-System/extensions/hooks/hooks.local.js` (gitignored).
