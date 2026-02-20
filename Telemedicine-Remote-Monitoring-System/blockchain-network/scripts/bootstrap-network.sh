@@ -7,11 +7,23 @@ NODE2_DIR="${ROOT_DIR}/node2"
 GENESIS_FILE="${ROOT_DIR}/genesis.json"
 NETWORK_ID="${NETWORK_ID:-1234}"
 DEFAULT_PASSWORD="${NODE_PASSWORD:-dev-only-password-change-me}"
+GETH_BIN="${GETH_BIN:-geth}"
 
 require_cmd() {
   local cmd="$1"
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "Missing required command: $cmd" >&2
+    exit 1
+  fi
+}
+
+require_pinned_geth() {
+  local version_line
+  version_line="$("$GETH_BIN" version 2>/dev/null | sed -n 's/^Version: //p' | head -n1)"
+  if [[ ! "$version_line" =~ ^1\.13\. ]]; then
+    echo "Unsupported geth version: ${version_line:-unknown}" >&2
+    echo "This local Clique flow is pinned to geth 1.13.x for clique_propose support." >&2
+    echo "Set GETH_BIN to a 1.13.x binary path." >&2
     exit 1
   fi
 }
@@ -52,7 +64,7 @@ ensure_account() {
   fi
 
   local output address
-  output="$(geth --datadir "$node_dir" account new --password "${node_dir}/password.txt" 2>&1)"
+  output="$(env -u GETH_BIN "$GETH_BIN" --datadir "$node_dir" account new --password "${node_dir}/password.txt" 2>&1)"
   address="$(extract_address "$output")"
   printf '%s\n' "$address" > "$account_file"
   printf '%s\n' "$address"
@@ -114,11 +126,12 @@ JSON
 
 init_node() {
   local node_dir="$1"
-  geth --datadir "$node_dir" init "$GENESIS_FILE" >/dev/null
+  env -u GETH_BIN "$GETH_BIN" --datadir "$node_dir" init "$GENESIS_FILE" >/dev/null
 }
 
 main() {
-  require_cmd geth
+  require_cmd "$GETH_BIN"
+  require_pinned_geth
 
   mkdir -p "$NODE1_DIR" "$NODE2_DIR"
 

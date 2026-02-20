@@ -8,7 +8,14 @@ This folder provides a minimal two-node Clique (PoA) network for local developme
 - Secrets are generated locally and should remain untracked.
 
 ## Prerequisites
-- `geth` available on PATH.
+- `geth` **1.13.x** (required for `clique_propose` support).
+
+If your system has newer geth installed, use the helper to install a pinned local binary:
+
+```bash
+./scripts/install-geth-1.13.sh
+export GETH_BIN=/tmp/geth-1.13.15/bin/geth
+```
 
 ## Quick Start
 From `Telemedicine-Remote-Monitoring-System/blockchain-network`:
@@ -46,5 +53,6 @@ Optional validator proposal (against node1 RPC by default):
 
 ## Notes
 - The network ID defaults to `1234` and can be overridden with `NETWORK_ID`.
+- Scripts use `GETH_BIN` (default `geth`) and enforce a pinned `1.13.x` version.
 - `start-node.sh` exposes RPC on `127.0.0.1` ports `8545` (node1) and `8546` (node2).
 - If `genesis.json` is missing, `./scripts/init-network.sh` will call bootstrap automatically.

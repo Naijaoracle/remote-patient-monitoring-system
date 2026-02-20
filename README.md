@@ -1,30 +1,62 @@
-A project to build a remote patient monitoring system which uses short 
-range bluetooth low energy medical devices, verifies proximity to a 
-trusted device, and sends the data to medical professionals who verify the 
-data is from a trusted device, saving it to a distributed ledger running a 
-proof of authority consensus protocol.
+# Remote Patient Monitoring System (Prototype)
 
-The idea is to design the system to be resistant to attacks where fake 
-medical measurements are being sent to the medical profesionals.
+This repository contains a prototype remote patient monitoring system that combines:
+- BLE proximity-based measurement flow
+- Signature verification and auditability
+- A local blockchain-backed validation pipeline
 
-The proof of authority blockchain is meant to ensure the validators have 
-correctly assessed any measurements before adding them to the ledger.
+Goal: reduce risk of fake or replayed measurements by requiring trusted-device and validation steps.
 
-The use of a distributed ledger (on a consortium blockchain) is done 
-ensure the records cannot be edited by any one party.
+This project is a work in progress and is **not** production-ready.
 
-The research behind this project is in the academic paper attached. https://www.researchgate.net/publication/377029947_A_proposal_for_improving_the_data_security_of_remote_patient_monitoring_systems_by_proximity_verification_using_blockchain
+## Quick Start
 
-My MSc courses FOUNDATIONS OF HEALTH INFORMATION SYSTEMS (COMP7070) and 
-BLOCKCHAIN AND DIGITAL FUTURES (COMP7058) provided a knowledge base for this 
-project.
+### 1. Install dependencies
+```bash
+cd Telemedicine-Remote-Monitoring-System
+npm install
+```
 
-This project is still a work in progress and is not for use in a 
-production environment (just a reminder).
+### 2. Run tests
+```bash
+npm test
+```
 
-## Public repo hygiene
+### 3. Run the local demo portal
+```bash
+npm run demo:portal
+```
+Then open:
+- `http://127.0.0.1:8099/`
 
-- Keep secrets in untracked env files. See `Telemedicine-Remote-Monitoring-System/.env.example`.
-- Runtime demo data and generated node secrets are gitignored.
-- Private extensions should stay in a private repo/module.
-- Optional local hook file lives at `Telemedicine-Remote-Monitoring-System/extensions/hooks/hooks.local.js` (gitignored).
+### 4. (Optional) Start local blockchain network
+Requires `geth 1.13.x` (for Clique validator proposal APIs).
+
+```bash
+cd Telemedicine-Remote-Monitoring-System/blockchain-network
+./scripts/install-geth-1.13.sh
+export GETH_BIN=/tmp/geth-1.13.15/bin/geth
+./scripts/bootstrap-network.sh
+./scripts/start-node.sh node1
+./scripts/start-node.sh node2
+```
+
+## Documentation
+
+- System docs: `Telemedicine-Remote-Monitoring-System/docs/README.md`
+- Demo portal usage: `Telemedicine-Remote-Monitoring-System/demo/README.md`
+- Local chain setup: `Telemedicine-Remote-Monitoring-System/blockchain-network/README.md`
+- Installation details: `Telemedicine-Remote-Monitoring-System/docs/INSTALLATION.md`
+- API notes: `Telemedicine-Remote-Monitoring-System/docs/API.md`
+
+## Security and Repo Hygiene
+
+- Keep secrets in untracked env files (`Telemedicine-Remote-Monitoring-System/.env.example`).
+- Generated local chain data and node secrets are ignored.
+- Keep private extension logic outside public source control.
+- Optional local hook file path: `Telemedicine-Remote-Monitoring-System/extensions/hooks/hooks.local.js` (gitignored).
+
+## Research Context
+
+Background paper:
+- https://www.researchgate.net/publication/377029947_A_proposal_for_improving_the_data_security_of_remote_patient_monitoring_systems_by_proximity_verification_using_blockchain
