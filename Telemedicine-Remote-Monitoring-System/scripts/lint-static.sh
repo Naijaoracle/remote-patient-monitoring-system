@@ -4,17 +4,22 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
-if ! command -v rg >/dev/null 2>&1; then
-  echo "rg is required for lint-static.sh" >&2
-  exit 1
+if command -v rg >/dev/null 2>&1; then
+  mapfile -t JS_FILES < <(
+    rg --files . \
+      -g '*.js' \
+      -g '!**/node_modules/**' \
+      -g '!**/.data/**'
+  )
+else
+  echo "rg not found; falling back to find for JavaScript file discovery."
+  mapfile -t JS_FILES < <(
+    find . -type f -name '*.js' \
+      -not -path '*/node_modules/*' \
+      -not -path '*/.data/*' \
+      | sort
+  )
 fi
-
-mapfile -t JS_FILES < <(
-  rg --files . \
-    -g '*.js' \
-    -g '!**/node_modules/**' \
-    -g '!**/.data/**'
-)
 
 if [[ "${#JS_FILES[@]}" -eq 0 ]]; then
   echo "No JavaScript files found."
