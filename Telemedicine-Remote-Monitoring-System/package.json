@@ -8,6 +8,7 @@
     "static": "bash scripts/lint-static.sh",
     "test": "node --test test/unit/*.test.js test/integration/*.test.js",
     "demo:portal": "node demo/portal-server.js",
+    "demo:poa:e2e": "bash scripts/demo-poa-e2e.sh",
     "audit:verify": "node scripts/verify-audit-package.js",
     "security:baseline": "bash scripts/security-baseline.sh",
     "ci:check": "npm run lint && npm test"

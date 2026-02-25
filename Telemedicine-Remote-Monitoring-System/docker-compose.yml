@@ -1,0 +1,101 @@
+version: "3.9"
+
+services:
+  node1:
+    image: ethereum/client-go:v1.13.15
+    restart: unless-stopped
+    working_dir: /repo
+    volumes:
+      - ./:/repo
+    command: >
+      sh -lc "geth
+      --datadir /repo/blockchain-network/node1
+      --networkid 1234
+      --port 30303
+      --nat extip:127.0.0.1
+      --http --http.addr 0.0.0.0 --http.port 8545
+      --http.api admin,eth,net,web3,miner,clique
+      --allow-insecure-unlock
+      --unlock ${NODE1_ACCOUNT}
+      --password /repo/blockchain-network/node1/password.txt
+      --miner.etherbase ${NODE1_ACCOUNT}
+      --mine
+      --syncmode full
+      --verbosity 3"
+    ports:
+      - "127.0.0.1:8545:8545"
+      - "127.0.0.1:30303:30303"
+
+  node2:
+    image: ethereum/client-go:v1.13.15
+    restart: unless-stopped
+    working_dir: /repo
+    volumes:
+      - ./:/repo
+    command: >
+      sh -lc "geth
+      --datadir /repo/blockchain-network/node2
+      --networkid 1234
+      --port 30304
+      --nat extip:127.0.0.1
+      --http --http.addr 0.0.0.0 --http.port 8546
+      --http.api admin,eth,net,web3,miner,clique
+      --allow-insecure-unlock
+      --unlock ${NODE2_ACCOUNT}
+      --password /repo/blockchain-network/node2/password.txt
+      --miner.etherbase ${NODE2_ACCOUNT}
+      --mine
+      --syncmode full
+      --verbosity 3"
+    ports:
+      - "127.0.0.1:8546:8546"
+      - "127.0.0.1:30304:30304"
+
+  node3:
+    image: ethereum/client-go:v1.13.15
+    restart: unless-stopped
+    working_dir: /repo
+    volumes:
+      - ./:/repo
+    command: >
+      sh -lc "geth
+      --datadir /repo/blockchain-network/node3
+      --networkid 1234
+      --port 30305
+      --nat extip:127.0.0.1
+      --http --http.addr 0.0.0.0 --http.port 8547
+      --http.api admin,eth,net,web3,miner,clique
+      --allow-insecure-unlock
+      --unlock ${NODE3_ACCOUNT}
+      --password /repo/blockchain-network/node3/password.txt
+      --miner.etherbase ${NODE3_ACCOUNT}
+      --mine
+      --syncmode full
+      --verbosity 3"
+    ports:
+      - "127.0.0.1:8547:8547"
+      - "127.0.0.1:30305:30305"
+
+  portal:
+    image: node:20-bookworm
+    restart: unless-stopped
+    working_dir: /repo
+    volumes:
+      - ./:/repo
+    depends_on:
+      - node1
+      - node2
+      - node3
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8099
+      CHAIN_RPC_URL: http://node1:8545
+      MEASUREMENT_CONTRACT_ADDRESS: ${MEASUREMENT_CONTRACT_ADDRESS:-}
+      RPM_STORAGE_KEY_HEX: ${RPM_STORAGE_KEY_HEX}
+      RPM_KEYSTORE_MASTER_KEY_HEX: ${RPM_KEYSTORE_MASTER_KEY_HEX}
+      DEMO_OPERATOR_KEY: ${DEMO_OPERATOR_KEY}
+      DEMO_VIEWER_KEY: ${DEMO_VIEWER_KEY}
+    command: >
+      bash -lc "cd /repo && npm install && node demo/portal-server.js"
+    ports:
+      - "127.0.0.1:8099:8099"

@@ -1,0 +1,94 @@
+name: Mobile Artifacts
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  android-artifacts:
+    name: Android APK Artifacts (App A + App B)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Telemedicine-Remote-Monitoring-System/rpm_flutter_client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Build Android APK (Release)
+        run: flutter build apk --release
+
+      - name: Prepare App A and App B APKs
+        run: |
+          mkdir -p build/apk-dist
+          cp build/app/outputs/flutter-apk/app-release.apk build/apk-dist/rpm-app-a-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk build/apk-dist/rpm-app-b-release.apk
+
+      - name: Upload Android APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: |
+            Telemedicine-Remote-Monitoring-System/rpm_flutter_client/build/apk-dist/rpm-app-a-release.apk
+            Telemedicine-Remote-Monitoring-System/rpm_flutter_client/build/apk-dist/rpm-app-b-release.apk
+
+  ios-artifacts:
+    name: iOS Build Artifacts
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: Telemedicine-Remote-Monitoring-System/rpm_flutter_client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Build iOS (Device, no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Build iOS (Simulator)
+        run: flutter build ios --simulator --debug
+
+      - name: Package iOS Artifacts
+        run: |
+          mkdir -p build/ios-dist
+          if [ -d build/ios/iphoneos/Runner.app ]; then
+            ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app build/ios-dist/Runner-iphoneos-nosign.zip
+          fi
+          if [ -d build/ios/iphonesimulator/Runner.app ]; then
+            ditto -c -k --sequesterRsrc --keepParent build/ios/iphonesimulator/Runner.app build/ios-dist/Runner-iphonesimulator.zip
+          fi
+
+      - name: Upload iOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-builds
+          path: |
+            Telemedicine-Remote-Monitoring-System/rpm_flutter_client/build/ios-dist/Runner-iphoneos-nosign.zip
+            Telemedicine-Remote-Monitoring-System/rpm_flutter_client/build/ios-dist/Runner-iphonesimulator.zip

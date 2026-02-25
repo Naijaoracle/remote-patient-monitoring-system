@@ -17,10 +17,10 @@ function createTmpFile() {
   return path.join(dir, 'consent.jsonl');
 }
 
-test('consent store sets and retrieves latest consent', () => {
+test('consent store sets and retrieves latest consent', async () => {
   const filePath = createTmpFile();
   const expiresAt = new Date(Date.now() + 60_000).toISOString();
-  setConsent({
+  await setConsent({
     patientId: 'patient-1',
     granted: true,
     actor: 'operator',
@@ -38,36 +38,36 @@ test('consent store sets and retrieves latest consent', () => {
   assert.equal(policyCheck.ok, true);
 });
 
-test('consent store treats expired consent as inactive', () => {
+test('consent store treats expired consent as inactive', async () => {
   const filePath = createTmpFile();
   const expiresAt = new Date(Date.now() - 1_000).toISOString();
-  setConsent({ patientId: 'patient-2', granted: true, expiresAt }, filePath);
+  await setConsent({ patientId: 'patient-2', granted: true, expiresAt }, filePath);
 
   assert.equal(hasActiveConsent('patient-2', Date.now(), filePath), false);
 });
 
-test('consent purge removes expired latest grants', () => {
+test('consent purge removes expired latest grants', async () => {
   const filePath = createTmpFile();
-  setConsent({
+  await setConsent({
     patientId: 'patient-3',
     granted: true,
     expiresAt: new Date(Date.now() - 1_000).toISOString(),
   }, filePath);
-  setConsent({
+  await setConsent({
     patientId: 'patient-4',
     granted: true,
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
   }, filePath);
 
-  const removed = purgeExpiredConsents(filePath, Date.now());
+  const removed = await purgeExpiredConsents(filePath, Date.now());
   assert.equal(removed, 1);
   assert.equal(getLatestConsent('patient-3', filePath), null);
   assert.equal(hasActiveConsent('patient-4', Date.now(), filePath), true);
 });
 
-test('consent policy rejects unknown purpose and actor', () => {
+test('consent policy rejects unknown purpose and actor', async () => {
   const filePath = createTmpFile();
-  setConsent({
+  await setConsent({
     patientId: 'patient-5',
     granted: true,
     purposes: ['treatment'],
@@ -92,9 +92,9 @@ test('consent policy rejects unknown purpose and actor', () => {
   assert.equal(badActor.reason, 'actor_not_allowed');
 });
 
-test('consent policy enforces role/org/scope constraints', () => {
+test('consent policy enforces role/org/scope constraints', async () => {
   const filePath = createTmpFile();
-  setConsent({
+  await setConsent({
     patientId: 'patient-6',
     granted: true,
     purposes: ['treatment'],
@@ -144,11 +144,11 @@ test('consent policy enforces role/org/scope constraints', () => {
   assert.equal(badScope.reason, 'scope_not_allowed');
 });
 
-test('consent revocation propagation through lifecycle transitions', () => {
+test('consent revocation propagation through lifecycle transitions', async () => {
   const filePath = createTmpFile();
   const nowMs = Date.now();
 
-  setConsent({
+  await setConsent({
     patientId: 'patient-7',
     granted: true,
     purposes: ['treatment'],
@@ -161,7 +161,7 @@ test('consent revocation propagation through lifecycle transitions', () => {
   }, filePath);
   assert.equal(check.ok, true);
 
-  setConsent({
+  await setConsent({
     patientId: 'patient-7',
     granted: false,
     reason: 'revoked-by-patient',
@@ -173,7 +173,7 @@ test('consent revocation propagation through lifecycle transitions', () => {
   assert.equal(check.ok, false);
   assert.equal(check.reason, 'missing_or_revoked');
 
-  setConsent({
+  await setConsent({
     patientId: 'patient-7',
     granted: true,
     purposes: ['research'],

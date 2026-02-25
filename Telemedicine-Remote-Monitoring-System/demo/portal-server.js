@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const BLEService = require('../mobile-app/services/BLEService');
 const BlockchainService = require('../mobile-app/services/BlockchainService');
@@ -15,6 +16,7 @@ const {
 } = require('./chain-indexer');
 const { signWithRemoteSigner, readPemFile } = require('./remote-signer');
 const { loadCustomHooks } = require('./custom-hooks');
+const { buildRpcMeasurementAdapter } = require('./onchain-adapter');
 const {
   loadAuditKeyHistory,
   getActiveAuditSigningKey,
@@ -37,13 +39,18 @@ const {
   summarizeAuditEntries,
   buildAuditExportPackage,
 } = require('./audit');
+const { handleCoreRoutes } = require('./routes/core-routes');
+const { handleAuditRoutes } = require('./routes/audit-routes');
+const { handleMonitorRoutes } = require('./routes/monitor-routes');
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8099);
 const LEGACY_API_KEY = process.env.DEMO_API_KEY || '';
 const VIEWER_KEY = process.env.DEMO_VIEWER_KEY || LEGACY_API_KEY;
 const OPERATOR_KEY = process.env.DEMO_OPERATOR_KEY || LEGACY_API_KEY;
-const AUTH_ENABLED = VIEWER_KEY.length > 0 || OPERATOR_KEY.length > 0;
+const AUTH_ENABLED = process.env.AUTH_ENABLED !== '0';
+const ALLOW_UNAUTHENTICATED_DEMO = process.env.ALLOW_UNAUTHENTICATED_DEMO === '1';
+const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 const RECORD_TTL_SECONDS = Number(process.env.RECORD_TTL_SECONDS || 0);
 const AUDIT_TTL_SECONDS = Number(process.env.AUDIT_TTL_SECONDS || 0);
 const ALERT_TTL_SECONDS = Number(process.env.ALERT_TTL_SECONDS || 0);
@@ -61,13 +68,27 @@ const PENDING_PROPOSAL_ALERT_THRESHOLD = Number(process.env.PENDING_PROPOSAL_ALE
 const ALERT_COOLDOWN_SECONDS = Number(process.env.ALERT_COOLDOWN_SECONDS || 300);
 const CHAIN_RPC_URL = process.env.CHAIN_RPC_URL || '';
 const VALIDATOR_MANAGER_ADDRESS = process.env.VALIDATOR_MANAGER_ADDRESS || '';
+const MEASUREMENT_CONTRACT_ADDRESS = process.env.MEASUREMENT_CONTRACT_ADDRESS || '';
 const CHAIN_SYNC_START_BLOCK = Number(process.env.CHAIN_SYNC_START_BLOCK || 0);
 const CHAIN_SYNC_INTERVAL_SECONDS = Number(process.env.CHAIN_SYNC_INTERVAL_SECONDS || 0);
 const CHAIN_REORG_LOOKBACK_BLOCKS = Number(process.env.CHAIN_REORG_LOOKBACK_BLOCKS || 12);
+const CHAIN_SYNC_MAX_BACKOFF_SECONDS = Number(process.env.CHAIN_SYNC_MAX_BACKOFF_SECONDS || 300);
 const AUDIT_SIGNER_MODE = process.env.AUDIT_SIGNER_MODE || 'keystore';
 const AUDIT_SIGNER_REMOTE_ENDPOINT = process.env.AUDIT_SIGNER_REMOTE_ENDPOINT || '';
 const AUDIT_SIGNER_REMOTE_KEY_ID = process.env.AUDIT_SIGNER_REMOTE_KEY_ID || 'remote-audit-signer';
 const AUDIT_SIGNER_REMOTE_PUBKEY_PATH = process.env.AUDIT_SIGNER_REMOTE_PUBKEY_PATH || '';
+const ALLOW_DEMO_INSECURE_KEYS = process.env.ALLOW_DEMO_INSECURE_KEYS === '1';
+const RATE_LIMIT_WINDOW_SECONDS = Number(process.env.RATE_LIMIT_WINDOW_SECONDS || 60);
+const RATE_LIMIT_MAX_PER_WINDOW = Number(process.env.RATE_LIMIT_MAX_PER_WINDOW || 120);
+const requestRateState = new Map();
+
+function purgeExpiredRateLimitWindows(nowMs = Date.now()) {
+  for (const [subject, entry] of requestRateState) {
+    if (nowMs >= entry.resetAtMs) {
+      requestRateState.delete(subject);
+    }
+  }
+}
 const state = {
   initialized: false,
   deviceId: null,
@@ -79,14 +100,109 @@ const state = {
   auditSignerPublicKeyPem: null,
   auditSignerMode: null,
   chainSyncRunning: false,
+  chainSyncTimer: null,
+  chainSyncDelayMs: 0,
   txOrder: [],
   lastChallenge: null,
 };
 const customHooks = loadCustomHooks();
+let measurementContractAdapterEnabled = false;
 
 function json(res, status, payload) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(payload));
+}
+
+function assertNonNegativeNumber(name, value) {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`Invalid ${name}: expected non-negative number`);
+  }
+}
+
+function isHexAddress(value) {
+  return /^0x[a-fA-F0-9]{40}$/.test(String(value || ''));
+}
+
+function validateStartupConfig() {
+  if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+    throw new Error('PORT must be an integer between 1 and 65535');
+  }
+  if (!HOST || typeof HOST !== 'string') {
+    throw new Error('HOST must be a non-empty string');
+  }
+
+  const numericChecks = [
+    ['RECORD_TTL_SECONDS', RECORD_TTL_SECONDS],
+    ['AUDIT_TTL_SECONDS', AUDIT_TTL_SECONDS],
+    ['ALERT_TTL_SECONDS', ALERT_TTL_SECONDS],
+    ['TELEMETRY_TTL_SECONDS', TELEMETRY_TTL_SECONDS],
+    ['PROPOSAL_TELEMETRY_TTL_SECONDS', PROPOSAL_TELEMETRY_TTL_SECONDS],
+    ['PURGE_INTERVAL_SECONDS', PURGE_INTERVAL_SECONDS],
+    ['MONITOR_WINDOW_SECONDS', MONITOR_WINDOW_SECONDS],
+    ['UNAUTHORIZED_ALERT_THRESHOLD', UNAUTHORIZED_ALERT_THRESHOLD],
+    ['SUBMIT_FAILURE_ALERT_THRESHOLD', SUBMIT_FAILURE_ALERT_THRESHOLD],
+    ['VALIDATOR_FAILURE_ALERT_THRESHOLD', VALIDATOR_FAILURE_ALERT_THRESHOLD],
+    ['GAS_ANOMALY_GAS_USED', GAS_ANOMALY_GAS_USED],
+    ['GAS_ANOMALY_COUNT_THRESHOLD', GAS_ANOMALY_COUNT_THRESHOLD],
+    ['PROPOSAL_FAILURE_ALERT_THRESHOLD', PROPOSAL_FAILURE_ALERT_THRESHOLD],
+    ['PENDING_PROPOSAL_ALERT_THRESHOLD', PENDING_PROPOSAL_ALERT_THRESHOLD],
+    ['ALERT_COOLDOWN_SECONDS', ALERT_COOLDOWN_SECONDS],
+    ['CHAIN_SYNC_START_BLOCK', CHAIN_SYNC_START_BLOCK],
+    ['CHAIN_SYNC_INTERVAL_SECONDS', CHAIN_SYNC_INTERVAL_SECONDS],
+    ['CHAIN_REORG_LOOKBACK_BLOCKS', CHAIN_REORG_LOOKBACK_BLOCKS],
+    ['CHAIN_SYNC_MAX_BACKOFF_SECONDS', CHAIN_SYNC_MAX_BACKOFF_SECONDS],
+    ['RATE_LIMIT_WINDOW_SECONDS', RATE_LIMIT_WINDOW_SECONDS],
+    ['RATE_LIMIT_MAX_PER_WINDOW', RATE_LIMIT_MAX_PER_WINDOW],
+  ];
+  for (const [name, value] of numericChecks) {
+    assertNonNegativeNumber(name, value);
+  }
+
+  if (!ALLOW_DEMO_INSECURE_KEYS) {
+    const missingStorageKey = !process.env.RPM_STORAGE_KEY_HEX;
+    const missingMasterKey = !process.env.RPM_KEYSTORE_MASTER_KEY_HEX;
+    if (missingStorageKey || missingMasterKey) {
+      throw new Error(
+        'Refusing startup with demo encryption keys. Set RPM_STORAGE_KEY_HEX and RPM_KEYSTORE_MASTER_KEY_HEX, or ALLOW_DEMO_INSECURE_KEYS=1 for explicit demo-only mode.'
+      );
+    }
+  }
+
+  if (AUTH_ENABLED && VIEWER_KEY.length === 0 && OPERATOR_KEY.length === 0 && !ALLOW_UNAUTHENTICATED_DEMO) {
+    throw new Error(
+      'AUTH_ENABLED requires DEMO_OPERATOR_KEY/DEMO_VIEWER_KEY (or DEMO_API_KEY). Set ALLOW_UNAUTHENTICATED_DEMO=1 for explicit demo-only public mode.'
+    );
+  }
+
+  const hasChainRpc = CHAIN_RPC_URL.length > 0;
+  const hasMeasurementAddress = MEASUREMENT_CONTRACT_ADDRESS.length > 0;
+  if (hasChainRpc !== hasMeasurementAddress) {
+    throw new Error('CHAIN_RPC_URL and MEASUREMENT_CONTRACT_ADDRESS must be set together');
+  }
+  if (hasMeasurementAddress && !isHexAddress(MEASUREMENT_CONTRACT_ADDRESS)) {
+    throw new Error('MEASUREMENT_CONTRACT_ADDRESS must be a valid 0x-prefixed 20-byte hex address');
+  }
+
+  if (CHAIN_SYNC_INTERVAL_SECONDS > 0) {
+    if (!CHAIN_RPC_URL || !VALIDATOR_MANAGER_ADDRESS) {
+      throw new Error('CHAIN_SYNC_INTERVAL_SECONDS>0 requires CHAIN_RPC_URL and VALIDATOR_MANAGER_ADDRESS');
+    }
+    if (!isHexAddress(VALIDATOR_MANAGER_ADDRESS)) {
+      throw new Error('VALIDATOR_MANAGER_ADDRESS must be a valid 0x-prefixed 20-byte hex address');
+    }
+  }
+
+  if (!['keystore', 'remote'].includes(AUDIT_SIGNER_MODE)) {
+    throw new Error("AUDIT_SIGNER_MODE must be either 'keystore' or 'remote'");
+  }
+  if (AUDIT_SIGNER_MODE === 'remote') {
+    if (!AUDIT_SIGNER_REMOTE_ENDPOINT) {
+      throw new Error('AUDIT_SIGNER_REMOTE_ENDPOINT is required when AUDIT_SIGNER_MODE=remote');
+    }
+    if (!AUDIT_SIGNER_REMOTE_PUBKEY_PATH) {
+      throw new Error('AUDIT_SIGNER_REMOTE_PUBKEY_PATH is required when AUDIT_SIGNER_MODE=remote');
+    }
+  }
 }
 
 function ensureAuditDir() {
@@ -95,7 +211,7 @@ function ensureAuditDir() {
 
 function getRequesterIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
+  if (TRUST_PROXY && typeof forwarded === 'string' && forwarded.length > 0) {
     return forwarded.split(',')[0].trim();
   }
   return req.socket?.remoteAddress || 'unknown';
@@ -115,8 +231,28 @@ function writeAudit(req, status, message, role = 'public') {
   fs.appendFileSync(AUDIT_LOG_FILE, JSON.stringify(entry) + '\n', 'utf8');
   try {
     maybeEvaluateAlerts();
-  } catch (_error) {
-    // Monitoring should never break request flow in demo mode.
+  } catch (error) {
+    logNonFatal('alert-evaluation', error);
+  }
+}
+
+function logNonFatal(context, error) {
+  const message = `Non-fatal ${context}: ${error?.message || 'unknown error'}`;
+  console.warn(message);
+  try {
+    ensureAuditDir();
+    const entry = {
+      at: new Date().toISOString(),
+      ip: 'local',
+      method: 'SYSTEM',
+      path: `/non-fatal/${context}`,
+      role: 'system',
+      status: 500,
+      message,
+    };
+    fs.appendFileSync(AUDIT_LOG_FILE, JSON.stringify(entry) + '\n', 'utf8');
+  } catch (_logError) {
+    // Never crash on non-fatal logging.
   }
 }
 
@@ -199,6 +335,47 @@ function extractApiKey(req) {
   return '';
 }
 
+function secureEquals(a, b) {
+  const left = crypto.createHash('sha256').update(String(a || ''), 'utf8').digest();
+  const right = crypto.createHash('sha256').update(String(b || ''), 'utf8').digest();
+  return crypto.timingSafeEqual(left, right);
+}
+
+function resolveRateLimitSubject(req, pathname) {
+  if (!pathname.startsWith('/api/')) {
+    return null;
+  }
+  const suppliedApiKey = extractApiKey(req);
+  if (suppliedApiKey) {
+    return `key:${suppliedApiKey}`;
+  }
+  return `ip:${getRequesterIp(req)}`;
+}
+
+function consumeRateLimit(subject, nowMs = Date.now()) {
+  if (!subject || RATE_LIMIT_MAX_PER_WINDOW <= 0 || RATE_LIMIT_WINDOW_SECONDS <= 0) {
+    return { allowed: true, remaining: RATE_LIMIT_MAX_PER_WINDOW, resetAtMs: nowMs };
+  }
+  const windowMs = RATE_LIMIT_WINDOW_SECONDS * 1000;
+  const current = requestRateState.get(subject);
+  if (!current || nowMs >= current.resetAtMs) {
+    const next = {
+      count: 1,
+      resetAtMs: nowMs + windowMs,
+    };
+    requestRateState.set(subject, next);
+    return { allowed: true, remaining: Math.max(0, RATE_LIMIT_MAX_PER_WINDOW - 1), resetAtMs: next.resetAtMs };
+  }
+
+  if (current.count >= RATE_LIMIT_MAX_PER_WINDOW) {
+    return { allowed: false, remaining: 0, resetAtMs: current.resetAtMs };
+  }
+
+  current.count += 1;
+  requestRateState.set(subject, current);
+  return { allowed: true, remaining: Math.max(0, RATE_LIMIT_MAX_PER_WINDOW - current.count), resetAtMs: current.resetAtMs };
+}
+
 function extractActorId(req) {
   const headerActor = req.headers['x-actor-id'];
   if (typeof headerActor === 'string' && headerActor.trim().length > 0) {
@@ -209,13 +386,16 @@ function extractActorId(req) {
 
 function resolveRole(req, pathname, method) {
   const required = requiredRoleForRoute(pathname, method);
-  if (!AUTH_ENABLED || required === 'public') {
+  if (required === 'public') {
+    return { ok: true, role: 'public', required };
+  }
+  if (!AUTH_ENABLED) {
     return { ok: true, role: 'public', required };
   }
 
   const supplied = extractApiKey(req);
-  const isOperator = OPERATOR_KEY.length > 0 && supplied === OPERATOR_KEY;
-  const isViewer = VIEWER_KEY.length > 0 && supplied === VIEWER_KEY;
+  const isOperator = OPERATOR_KEY.length > 0 && secureEquals(supplied, OPERATOR_KEY);
+  const isViewer = VIEWER_KEY.length > 0 && secureEquals(supplied, VIEWER_KEY);
 
   if (required === 'viewer' && (isViewer || isOperator)) {
     return { ok: true, role: isOperator ? 'operator' : 'viewer', required };
@@ -256,7 +436,8 @@ function purgeJsonlByTimestamp(filePath, ttlSeconds) {
   return removed;
 }
 
-function runRetentionPurge() {
+async function runRetentionPurge() {
+  purgeExpiredRateLimitWindows();
   ensureAuditDir();
   const removedRecords = purgeEncryptedRecords(RECORD_TTL_SECONDS);
   const removedAudit = purgeJsonlByTimestamp(AUDIT_LOG_FILE, AUDIT_TTL_SECONDS);
@@ -266,7 +447,7 @@ function runRetentionPurge() {
     PROPOSAL_TELEMETRY_FILE,
     PROPOSAL_TELEMETRY_TTL_SECONDS
   );
-  const removedConsent = purgeExpiredConsents();
+  const removedConsent = await purgeExpiredConsents();
   if (
     removedRecords > 0 ||
     removedAudit > 0 ||
@@ -346,6 +527,11 @@ function resetCoreState() {
   state.auditSignerPublicKeyPem = null;
   state.auditSignerMode = null;
   state.chainSyncRunning = false;
+  if (state.chainSyncTimer) {
+    clearTimeout(state.chainSyncTimer);
+    state.chainSyncTimer = null;
+  }
+  state.chainSyncDelayMs = 0;
   state.txOrder = [];
   state.lastChallenge = null;
 }
@@ -446,6 +632,14 @@ async function initDemo(payload) {
   BlockchainService.registerPeripheralKey(deviceId, peripheral.publicKey);
   BlockchainService.registerCentralKey(centralId, central.publicKey);
   BlockchainService.addValidator(validatorId);
+  if (CHAIN_RPC_URL && MEASUREMENT_CONTRACT_ADDRESS) {
+    BlockchainService.setContractAdapter(buildRpcMeasurementAdapter({
+      rpcUrl: CHAIN_RPC_URL,
+      measurementContractAddress: MEASUREMENT_CONTRACT_ADDRESS,
+      getValidatorAddress: () => state.validatorId || validatorId,
+    }));
+    measurementContractAdapterEnabled = true;
+  }
 
   state.initialized = true;
   state.deviceId = deviceId;
@@ -555,8 +749,9 @@ async function submitMeasurement(payload, actorId) {
         validatorId: state.validatorId,
       },
     });
-  } catch (_error) {
+  } catch (error) {
     // Do not fail successful core submission because of extension-side effects.
+    logNonFatal('custom-hooks-after-submit', error);
   }
   return { txHash, stored };
 }
@@ -605,7 +800,7 @@ async function syncProposalEventsFromChain(options = {}) {
 
   let appended = 0;
   for (const event of syncResult.events) {
-    const persisted = appendProposalTelemetry({
+    const persisted = await appendProposalTelemetry({
       proposalId: event.proposalId,
       proposalType: event.proposalType,
       validatorId: event.validatorId,
@@ -630,20 +825,57 @@ async function syncProposalEventsFromChain(options = {}) {
 
 async function runScheduledChainSync() {
   if (state.chainSyncRunning || !CHAIN_RPC_URL || !VALIDATOR_MANAGER_ADDRESS) {
-    return;
+    return true;
   }
   state.chainSyncRunning = true;
   try {
     await syncProposalEventsFromChain({});
+    return true;
   } catch (_error) {
     // Never crash demo server because of indexing failures.
+    logNonFatal('chain-sync', _error);
+    return false;
   } finally {
     state.chainSyncRunning = false;
   }
 }
 
+function scheduleChainSync(delayMs = 0) {
+  if (CHAIN_SYNC_INTERVAL_SECONDS <= 0) {
+    return;
+  }
+  if (state.chainSyncTimer) {
+    clearTimeout(state.chainSyncTimer);
+    state.chainSyncTimer = null;
+  }
+  state.chainSyncTimer = setTimeout(async () => {
+    const ok = await runScheduledChainSync();
+    const baseMs = CHAIN_SYNC_INTERVAL_SECONDS * 1000;
+    const maxBackoffMs = Math.max(baseMs, CHAIN_SYNC_MAX_BACKOFF_SECONDS * 1000);
+    if (ok) {
+      state.chainSyncDelayMs = baseMs;
+    } else if (state.chainSyncDelayMs <= 0) {
+      state.chainSyncDelayMs = Math.min(maxBackoffMs, baseMs * 2);
+    } else {
+      state.chainSyncDelayMs = Math.min(maxBackoffMs, Math.floor(state.chainSyncDelayMs * 2));
+    }
+    const jitterMs = Math.floor(Math.random() * 300);
+    scheduleChainSync(Math.max(baseMs, state.chainSyncDelayMs) + jitterMs);
+  }, Math.max(0, Math.floor(delayMs)));
+  state.chainSyncTimer.unref();
+}
+
+validateStartupConfig();
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const rateSubject = resolveRateLimitSubject(req, url.pathname);
+  const rate = consumeRateLimit(rateSubject);
+  if (!rate.allowed) {
+    writeAudit(req, 429, `Rate limit exceeded subject=${rateSubject}`, 'unauthorized');
+    res.setHeader('Retry-After', String(Math.max(1, Math.ceil((rate.resetAtMs - Date.now()) / 1000))));
+    return json(res, 429, { error: 'Rate limit exceeded' });
+  }
   const auth = resolveRole(req, url.pathname, req.method);
   const actorId = extractActorId(req);
 
@@ -653,23 +885,21 @@ const server = http.createServer(async (req, res) => {
       return json(res, 401, { error: 'Unauthorized' });
     }
 
-    if (req.method === 'GET' && url.pathname === '/') {
-      return serveFile(res, path.join(__dirname, 'portal.html'));
-    }
-
-    if (req.method === 'GET' && url.pathname === '/rpm-demo.html') {
-      return serveFile(res, path.join(__dirname, 'rpm-demo.html'));
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/health') {
-      writeAudit(req, 200, 'Health check', auth.role);
-      return json(res, 200, {
-        ok: true,
-        initialized: state.initialized,
-        deviceId: state.deviceId,
-        centralId: state.centralId,
-        validatorId: state.validatorId,
-      });
+    if (handleCoreRoutes({
+      req,
+      res,
+      url,
+      auth,
+      json,
+      serveFile,
+      writeAudit,
+      state,
+      measurementContractAdapterEnabled,
+      chainRpcUrl: CHAIN_RPC_URL,
+      measurementContractAddress: MEASUREMENT_CONTRACT_ADDRESS,
+      webRootDir: __dirname,
+    })) {
+      return;
     }
 
     if (req.method === 'POST' && url.pathname === '/api/init') {
@@ -700,7 +930,7 @@ const server = http.createServer(async (req, res) => {
       try {
         result = await submitMeasurement(body, resolvedActorId);
       } catch (error) {
-        appendValidatorTelemetry({
+        await appendValidatorTelemetry({
           validatorId: state.validatorId,
           status: 'failure',
           reason: error.message,
@@ -708,7 +938,7 @@ const server = http.createServer(async (req, res) => {
         });
         throw error;
       }
-      appendValidatorTelemetry({
+      await appendValidatorTelemetry({
         validatorId: state.validatorId,
         status: 'success',
         txHash: result.txHash,
@@ -724,7 +954,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const granted = body.granted === undefined ? true : Boolean(body.granted);
       const resolvedActorId = actorId || String(body.actorId || '').trim();
-      const consent = setConsent({
+      const consent = await setConsent({
         patientId: body.patientId,
         granted,
         actor: auth.role,
@@ -795,119 +1025,44 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, actor });
     }
 
-    if (req.method === 'GET' && url.pathname === '/api/audit/export') {
-      const entries = exportAuditEntries({
-        from: url.searchParams.get('from'),
-        to: url.searchParams.get('to'),
-        limit: url.searchParams.get('limit'),
-      });
-      writeAudit(req, 200, `Audit export count=${entries.length}`, auth.role);
-      return json(res, 200, { ok: true, entries });
+    if (await handleAuditRoutes({
+      req,
+      res,
+      url,
+      auth,
+      json,
+      readBody,
+      writeAudit,
+      exportAuditEntries,
+      createSignedAuditPackageFromRequest,
+      loadAuditKeyHistory,
+      getActiveAuditSigningKey,
+      rotateAuditSigner,
+    })) {
+      return;
     }
 
-    if (req.method === 'GET' && url.pathname === '/api/audit/package') {
-      const exportPackage = await createSignedAuditPackageFromRequest(url);
-      writeAudit(req, 200, `Audit package exported count=${exportPackage.manifest.entryCount}`, auth.role);
-      return json(res, 200, { ok: true, exportPackage });
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/audit/keys') {
-      const keys = loadAuditKeyHistory();
-      const active = getActiveAuditSigningKey();
-      writeAudit(req, 200, `Audit key history read count=${keys.length}`, auth.role);
-      return json(res, 200, { ok: true, active, keys });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/audit/rotate-key') {
-      const body = await readBody(req);
-      const rotation = rotateAuditSigner(String(body.reason || 'manual'));
-      writeAudit(req, 200, `Audit key rotated keyId=${rotation.keyId}`, auth.role);
-      return json(res, 200, { ok: true, ...rotation });
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/monitor/summary') {
-      const entries = exportAuditEntries({ limit: 1000 });
-      const summary = summarizeAuditEntries(entries);
-      const validatorTelemetry = exportValidatorTelemetry({ limit: 1000 });
-      const validatorSummary = summarizeValidatorTelemetry(validatorTelemetry);
-      const proposalTelemetry = exportProposalTelemetry({ limit: 1000 });
-      const proposalSummary = summarizeProposalTelemetry(proposalTelemetry);
-      writeAudit(req, 200, 'Monitor summary read', auth.role);
-      return json(res, 200, { ok: true, summary, validatorSummary, proposalSummary });
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/monitor/alerts') {
-      const alerts = exportAlerts({
-        from: url.searchParams.get('from'),
-        to: url.searchParams.get('to'),
-        limit: url.searchParams.get('limit'),
-        type: url.searchParams.get('type'),
-      });
-      writeAudit(req, 200, `Monitor alerts read count=${alerts.length}`, auth.role);
-      return json(res, 200, { ok: true, alerts });
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/monitor/validators') {
-      const events = exportValidatorTelemetry({
-        from: url.searchParams.get('from'),
-        to: url.searchParams.get('to'),
-        limit: url.searchParams.get('limit'),
-        validatorId: url.searchParams.get('validatorId'),
-      });
-      const summary = summarizeValidatorTelemetry(events);
-      writeAudit(req, 200, `Monitor validators read count=${events.length}`, auth.role);
-      return json(res, 200, { ok: true, summary, events });
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/monitor/proposals') {
-      const events = exportProposalTelemetry({
-        from: url.searchParams.get('from'),
-        to: url.searchParams.get('to'),
-        limit: url.searchParams.get('limit'),
-        proposalId: url.searchParams.get('proposalId'),
-        validatorId: url.searchParams.get('validatorId'),
-        action: url.searchParams.get('action'),
-      });
-      const summary = summarizeProposalTelemetry(events);
-      writeAudit(req, 200, `Monitor proposals read count=${events.length}`, auth.role);
-      return json(res, 200, { ok: true, summary, events });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/monitor/proposals') {
-      const body = await readBody(req);
-      const event = appendProposalTelemetry({
-        proposalId: body.proposalId,
-        proposalType: body.proposalType,
-        validatorId: body.validatorId || state.validatorId,
-        action: body.action,
-        status: body.status || 'success',
-        txHash: body.txHash,
-        reason: body.reason,
-      });
-      writeAudit(req, 200, `Proposal telemetry appended proposalId=${event.proposalId}`, auth.role);
-      return json(res, 200, { ok: true, event });
-    }
-
-    if (req.method === 'POST' && url.pathname === '/api/monitor/proposals/sync') {
-      const body = await readBody(req);
-      const parsedFromBlock = body.fromBlock === undefined ? undefined : Number(body.fromBlock);
-      const parsedToBlock = body.toBlock === undefined ? undefined : Number(body.toBlock);
-      const syncResult = await syncProposalEventsFromChain({
-        rpcUrl: body.rpcUrl,
-        contractAddress: body.contractAddress,
-        fromBlock: Number.isFinite(parsedFromBlock) ? parsedFromBlock : undefined,
-        toBlock: Number.isFinite(parsedToBlock) ? parsedToBlock : undefined,
-      });
-      writeAudit(req, 200, `Chain proposal sync count=${syncResult.events.length}`, auth.role);
-      return json(res, 200, {
-        ok: true,
-        fromBlock: syncResult.fromBlock,
-        toBlock: syncResult.toBlock,
-        latestBlock: syncResult.latestBlock,
-        synced: syncResult.events.length,
-        appended: syncResult.appended,
-        lastSyncedBlock: getLastSyncedBlock(body.contractAddress || VALIDATOR_MANAGER_ADDRESS),
-      });
+    if (await handleMonitorRoutes({
+      req,
+      res,
+      url,
+      auth,
+      json,
+      readBody,
+      writeAudit,
+      exportAuditEntries,
+      summarizeAuditEntries,
+      exportAlerts,
+      exportValidatorTelemetry,
+      summarizeValidatorTelemetry: (entries) => summarizeValidatorTelemetry(entries, { gasAnomalyGasUsed: GAS_ANOMALY_GAS_USED }),
+      exportProposalTelemetry,
+      summarizeProposalTelemetry,
+      appendProposalTelemetry,
+      syncProposalEventsFromChain,
+      getLastSyncedBlock,
+      validatorManagerAddress: VALIDATOR_MANAGER_ADDRESS,
+    })) {
+      return;
     }
 
     if (req.method === 'POST' && url.pathname === '/api/reset') {
@@ -926,11 +1081,13 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   ensureAuditSignerReady();
-  runRetentionPurge();
-  setInterval(runRetentionPurge, PURGE_INTERVAL_SECONDS * 1000).unref();
+  runRetentionPurge().catch((error) => logNonFatal('retention-purge-startup', error));
+  setInterval(() => {
+    runRetentionPurge().catch((error) => logNonFatal('retention-purge-interval', error));
+  }, PURGE_INTERVAL_SECONDS * 1000).unref();
   if (CHAIN_SYNC_INTERVAL_SECONDS > 0) {
-    runScheduledChainSync();
-    setInterval(runScheduledChainSync, CHAIN_SYNC_INTERVAL_SECONDS * 1000).unref();
+    state.chainSyncDelayMs = CHAIN_SYNC_INTERVAL_SECONDS * 1000;
+    scheduleChainSync(0);
   }
   console.log(`RPM demo portal running on http://${HOST}:${PORT}`);
 });

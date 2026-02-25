@@ -23,9 +23,9 @@ function createProposalTelemetryFile() {
   return path.join(dir, 'proposal-telemetry.jsonl');
 }
 
-test('telemetry appends and exports validator events', () => {
+test('telemetry appends and exports validator events', async () => {
   const filePath = createTelemetryFile();
-  appendValidatorTelemetry({
+  await appendValidatorTelemetry({
     validatorId: '0xval1',
     status: 'success',
     txHash: '0xtx1',
@@ -33,7 +33,7 @@ test('telemetry appends and exports validator events', () => {
     gasUsed: 650000,
     durationMs: 120,
   }, filePath);
-  appendValidatorTelemetry({
+  await appendValidatorTelemetry({
     validatorId: '0xval1',
     status: 'failure',
     reason: 'rejected',
@@ -68,23 +68,23 @@ test('telemetry summary groups per validator', () => {
   assert.equal(summary.byValidator.v2.success, 1);
 });
 
-test('proposal telemetry exports and summarizes lifecycle', () => {
+test('proposal telemetry exports and summarizes lifecycle', async () => {
   const filePath = createProposalTelemetryFile();
-  appendProposalTelemetry({
+  await appendProposalTelemetry({
     proposalId: 'proposal-1',
     proposalType: 'addValidator',
     validatorId: 'v1',
     action: 'create',
     status: 'success',
   }, filePath);
-  appendProposalTelemetry({
+  await appendProposalTelemetry({
     proposalId: 'proposal-1',
     proposalType: 'addValidator',
     validatorId: 'v2',
     action: 'approve',
     status: 'success',
   }, filePath);
-  appendProposalTelemetry({
+  await appendProposalTelemetry({
     proposalId: 'proposal-2',
     proposalType: 'removeValidator',
     validatorId: 'v3',
@@ -105,16 +105,16 @@ test('proposal telemetry exports and summarizes lifecycle', () => {
   assert.equal(summary.byValidator.v3.failures, 1);
 });
 
-test('proposal telemetry deduplicates by eventUid', () => {
+test('proposal telemetry deduplicates by eventUid', async () => {
   const filePath = createProposalTelemetryFile();
-  const first = appendProposalTelemetry({
+  const first = await appendProposalTelemetry({
     proposalId: 'proposal-dup',
     validatorId: 'v1',
     action: 'create',
     status: 'success',
     eventUid: 'tx1:0:create',
   }, filePath);
-  const duplicate = appendProposalTelemetry({
+  const duplicate = await appendProposalTelemetry({
     proposalId: 'proposal-dup',
     validatorId: 'v1',
     action: 'create',

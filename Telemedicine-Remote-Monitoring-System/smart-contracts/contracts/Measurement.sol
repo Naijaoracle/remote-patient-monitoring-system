@@ -21,7 +21,9 @@ contract Measurement {
 
     IValidatorManager public validatorManager;
     uint256 public proximityWindowSeconds;
+    uint256 public peripheralAheadToleranceSeconds;
     address public owner;
+    bool public paused;
 
     mapping(bytes32 => StoredMeasurement) public measurements;
     mapping(bytes32 => bool) public usedChallenges;
@@ -43,12 +45,16 @@ contract Measurement {
     event CentralKeyRevoked(address indexed centralDeviceAddress);
     event CentralKeyUnrevoked(address indexed centralDeviceAddress);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event PeripheralAheadToleranceUpdated(uint256 toleranceSeconds);
+    event Paused(address indexed account);
+    event Unpaused(address indexed account);
 
     constructor(address validatorManagerAddress, uint256 proximityWindow) {
         require(validatorManagerAddress != address(0), "Invalid validator manager");
         require(proximityWindow > 0, "Invalid proximity window");
         validatorManager = IValidatorManager(validatorManagerAddress);
         proximityWindowSeconds = proximityWindow;
+        peripheralAheadToleranceSeconds = 30;
         owner = msg.sender;
     }
 
@@ -62,10 +68,33 @@ contract Measurement {
         _;
     }
 
+    modifier whenNotPaused() {
+        require(!paused, "Paused");
+        _;
+    }
+
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "Invalid owner");
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
+    }
+
+    function pause() external onlyOwner {
+        require(!paused, "Already paused");
+        paused = true;
+        emit Paused(msg.sender);
+    }
+
+    function unpause() external onlyOwner {
+        require(paused, "Not paused");
+        paused = false;
+        emit Unpaused(msg.sender);
+    }
+
+    function setPeripheralAheadTolerance(uint256 toleranceSeconds) external onlyOwner {
+        require(toleranceSeconds <= 300, "Tolerance too large");
+        peripheralAheadToleranceSeconds = toleranceSeconds;
+        emit PeripheralAheadToleranceUpdated(toleranceSeconds);
     }
 
     function revokePeripheralKey(address deviceAddress) external onlyOwner {
@@ -99,7 +128,7 @@ contract Measurement {
         uint256 timestampPeripheral,
         uint256 timestampCentral,
         bytes32 challengeHash
-    ) external onlyValidator {
+    ) external onlyValidator whenNotPaused {
         require(measurementHash != bytes32(0), "Invalid measurement hash");
         require(challengeHash != bytes32(0), "Invalid challenge hash");
         require(deviceAddress != address(0), "Invalid device address");
@@ -110,8 +139,12 @@ contract Measurement {
             timestampPeripheral > latestPeripheralTimestamp[deviceAddress],
             "Non-monotonic peripheral timestamp"
         );
-        require(timestampCentral >= timestampPeripheral, "Central timestamp before peripheral");
-        require(timestampCentral - timestampPeripheral <= proximityWindowSeconds, "Proximity window exceeded");
+        require(
+            timestampPeripheral <= timestampCentral + peripheralAheadToleranceSeconds,
+            "Central timestamp before peripheral"
+        );
+        uint256 centralDelta = timestampCentral >= timestampPeripheral ? timestampCentral - timestampPeripheral : 0;
+        require(centralDelta <= proximityWindowSeconds, "Proximity window exceeded");
         require(!usedChallenges[challengeHash], "Challenge already used");
         require(!measurements[measurementHash].exists, "Measurement already recorded");
 

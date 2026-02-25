@@ -41,15 +41,11 @@ describe("ValidatorManager (Hardhat)", function () {
     expect(await contract.isValidator(candidate.address)).to.equal(true);
   });
 
-  it("prevents removing the last validator", async function () {
-    const [onlyValidator] = await ethers.getSigners();
-    const ValidatorManager = await ethers.getContractFactory("ValidatorManager");
-    const single = await ValidatorManager.deploy([onlyValidator.address]);
-    await single.waitForDeployment();
-
+  it("prevents dropping below minimum validators", async function () {
+    const { contract, validator1 } = await deployFixture();
     await expectRevert(
-      single.connect(onlyValidator).proposeRemoveValidator(onlyValidator.address),
-      "Cannot remove last validator"
+      contract.connect(validator1).proposeRemoveValidator(validator1.address),
+      "Cannot go below minimum validators"
     );
   });
 

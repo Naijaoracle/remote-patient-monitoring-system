@@ -4,6 +4,7 @@
 pragma solidity ^0.8.0;
 
 contract ValidatorManager {
+    uint256 public constant MIN_VALIDATORS = 3;
     enum ProposalType {
         Add,
         Remove
@@ -31,7 +32,7 @@ contract ValidatorManager {
     event ProposalExecuted(bytes32 indexed proposalId, address indexed executor);
 
     constructor(address[] memory initialValidators) {
-        require(initialValidators.length > 0, "No initial validators");
+        require(initialValidators.length >= MIN_VALIDATORS, "Insufficient initial validators");
         for (uint256 i = 0; i < initialValidators.length; i++) {
             address validator = initialValidators[i];
             require(validator != address(0), "Invalid validator");
@@ -55,7 +56,7 @@ contract ValidatorManager {
     }
 
     function proposeRemoveValidator(address validator) public onlyValidator returns (bytes32) {
-        require(validators.length > 1, "Cannot remove last validator");
+        require(validators.length > MIN_VALIDATORS, "Cannot go below minimum validators");
         return _createProposal(ProposalType.Remove, validator);
     }
 
@@ -145,7 +146,7 @@ contract ValidatorManager {
             emit ValidatorAdded(proposal.target);
         } else {
             require(isValidator[proposal.target], "Not a validator");
-            require(validators.length > 1, "Cannot remove last validator");
+            require(validators.length > MIN_VALIDATORS, "Cannot go below minimum validators");
             isValidator[proposal.target] = false;
             emit ValidatorRemoved(proposal.target);
 

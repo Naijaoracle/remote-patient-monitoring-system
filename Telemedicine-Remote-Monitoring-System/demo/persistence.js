@@ -22,6 +22,15 @@ function resolveKey() {
   return crypto.createHash('sha256').update('rpm-demo-insecure-dev-key').digest();
 }
 
+function deriveRecordKey(masterKey, txHash, kdfSaltHex) {
+  if (!kdfSaltHex) {
+    return masterKey;
+  }
+  const salt = Buffer.from(kdfSaltHex, 'hex');
+  const info = Buffer.from(`rpm-record:${String(txHash || '')}`, 'utf8');
+  return crypto.hkdfSync('sha256', masterKey, salt, info, 32);
+}
+
 function encryptObject(payload, key) {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
@@ -37,23 +46,31 @@ function encryptObject(payload, key) {
 }
 
 function decryptObject(enc, key) {
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(enc.iv, 'hex'));
-  decipher.setAuthTag(Buffer.from(enc.authTag, 'hex'));
-  const plaintext = Buffer.concat([
-    decipher.update(Buffer.from(enc.ciphertext, 'hex')),
-    decipher.final(),
-  ]);
-  return JSON.parse(plaintext.toString('utf8'));
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(enc.iv, 'hex'));
+    decipher.setAuthTag(Buffer.from(enc.authTag, 'hex'));
+    const plaintext = Buffer.concat([
+      decipher.update(Buffer.from(enc.ciphertext, 'hex')),
+      decipher.final(),
+    ]);
+    return JSON.parse(plaintext.toString('utf8'));
+  } catch (_error) {
+    throw new Error('Decryption failed: invalid or corrupted ciphertext');
+  }
 }
 
 function appendEncryptedRecord(txHash, record) {
   ensureDataDir();
   const key = resolveKey();
-  const encrypted = encryptObject(record, key);
+  const kdfSaltHex = crypto.randomBytes(16).toString('hex');
+  const perRecordKey = deriveRecordKey(key, txHash, kdfSaltHex);
+  const encrypted = encryptObject(record, perRecordKey);
 
   const envelope = {
+    version: 2,
     txHash,
     createdAt: new Date().toISOString(),
+    kdfSalt: kdfSaltHex,
     ...encrypted,
   };
 
@@ -70,12 +87,18 @@ function getEncryptedRecord(txHash) {
   const lines = fs.readFileSync(DB_FILE, 'utf8').split('\n').filter(Boolean);
 
   for (let i = lines.length - 1; i >= 0; i--) {
-    const parsed = JSON.parse(lines[i]);
+    let parsed;
+    try {
+      parsed = JSON.parse(lines[i]);
+    } catch (_error) {
+      continue;
+    }
     if (parsed.txHash !== txHash) {
       continue;
     }
 
-    const payload = decryptObject(parsed, key);
+    const recordKey = deriveRecordKey(key, parsed.txHash, parsed.kdfSalt);
+    const payload = decryptObject(parsed, recordKey);
     return {
       txHash: parsed.txHash,
       createdAt: parsed.createdAt,

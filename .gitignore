@@ -21,13 +21,26 @@ Telemedicine-Remote-Monitoring-System/reports/
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/nodekey
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/password.txt
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/account.txt
+Telemedicine-Remote-Monitoring-System/blockchain-network/node*/static-nodes.json
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/history
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/geth/
 Telemedicine-Remote-Monitoring-System/blockchain-network/node*/keystore/
+Telemedicine-Remote-Monitoring-System/smart-contracts/build/
 
 # Logs and temp
 *.log
 .DS_Store
+
+# Mobile build artifacts (do not commit binaries)
+*.apk
+*.aab
+*.ipa
+*.xcarchive
+*.xcresult
+Telemedicine-Remote-Monitoring-System/rpm_flutter_client/build/
+Telemedicine-Remote-Monitoring-System/rpm_flutter_client/android/app/release/
+Telemedicine-Remote-Monitoring-System/rpm_flutter_client/android/app/debug/
+Telemedicine-Remote-Monitoring-System/rpm_flutter_client/android/app/profile/
 
 # Local-only research artifacts
 BDF draft check1.pdf

@@ -1,10 +1,32 @@
 const fs = require('fs');
 const path = require('path');
+const { withFileLock } = require('./file-lock');
 
 const TELEMETRY_FILE = path.join(__dirname, '.data', 'validator-telemetry.jsonl');
 const PROPOSAL_TELEMETRY_FILE = path.join(__dirname, '.data', 'proposal-telemetry.jsonl');
 
-function appendValidatorTelemetry(event, filePath = TELEMETRY_FILE) {
+// In-memory cache of seen proposal eventUids for the default file path.
+// Avoids O(n) full-file scan on every blockchain event while keeping
+// the file as the source of truth. Custom filePaths (e.g. tests) bypass this.
+const _proposalUidCache = new Set();
+let _proposalUidCacheSeeded = false;
+
+function _seedProposalUidCache() {
+  if (_proposalUidCacheSeeded) return;
+  _proposalUidCacheSeeded = true;
+  if (!fs.existsSync(PROPOSAL_TELEMETRY_FILE)) return;
+  const lines = fs.readFileSync(PROPOSAL_TELEMETRY_FILE, 'utf8').split('\n').filter(Boolean);
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line);
+      if (parsed.eventUid) _proposalUidCache.add(parsed.eventUid);
+    } catch (_e) {
+      // skip unparseable lines
+    }
+  }
+}
+
+async function appendValidatorTelemetry(event, filePath = TELEMETRY_FILE) {
   const entry = {
     at: new Date().toISOString(),
     validatorId: String(event.validatorId || '').trim() || 'unknown',
@@ -16,7 +38,10 @@ function appendValidatorTelemetry(event, filePath = TELEMETRY_FILE) {
     durationMs: Number(event.durationMs || 0),
   };
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
+  const lockPath = `${filePath}.lock`;
+  await withFileLock(lockPath, () => {
+    fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
+  });
   return entry;
 }
 
@@ -62,7 +87,8 @@ function exportValidatorTelemetry(options = {}, filePath = TELEMETRY_FILE) {
   return entries.slice(-resolvedLimit);
 }
 
-function summarizeValidatorTelemetry(entries) {
+function summarizeValidatorTelemetry(entries, options = {}) {
+  const gasAnomalyGasUsed = Number(options.gasAnomalyGasUsed || 500000);
   const summary = {
     totalEvents: entries.length,
     totalSuccess: 0,
@@ -103,7 +129,7 @@ function summarizeValidatorTelemetry(entries) {
       if (gasUsed > bucket.maxGasUsed) {
         bucket.maxGasUsed = gasUsed;
       }
-      if (gasUsed > 0 && gasUsed >= 500000) {
+      if (gasUsed > 0 && gasUsed >= gasAnomalyGasUsed) {
         summary.gasAnomalyCount += 1;
       }
     } else if (entry.status === 'failure') {
@@ -115,37 +141,49 @@ function summarizeValidatorTelemetry(entries) {
   return summary;
 }
 
-function appendProposalTelemetry(event, filePath = PROPOSAL_TELEMETRY_FILE) {
-  const eventUid = String(event.eventUid || '').trim();
-  if (eventUid && hasProposalEvent(eventUid, filePath)) {
-    return null;
-  }
-
-  const entry = {
-    at: new Date().toISOString(),
-    proposalId: String(event.proposalId || '').trim() || 'unknown',
-    proposalType: String(event.proposalType || 'unknown'),
-    validatorId: String(event.validatorId || '').trim() || 'unknown',
-    action: String(event.action || 'unknown'),
-    status: String(event.status || 'unknown'),
-    txHash: String(event.txHash || ''),
-    eventUid: eventUid || null,
-    blockNumber: Number(event.blockNumber || 0),
-    logIndex: Number(event.logIndex || 0),
-    removed: Boolean(event.removed),
-    gasUsed: Number(event.gasUsed || 0),
-    source: String(event.source || 'api'),
-    reason: String(event.reason || ''),
-  };
+async function appendProposalTelemetry(event, filePath = PROPOSAL_TELEMETRY_FILE) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
-  return entry;
+  const lockPath = `${filePath}.lock`;
+  return withFileLock(lockPath, () => {
+    const eventUid = String(event.eventUid || '').trim();
+    if (eventUid && hasProposalEvent(eventUid, filePath)) {
+      return null;
+    }
+
+    const entry = {
+      at: new Date().toISOString(),
+      proposalId: String(event.proposalId || '').trim() || 'unknown',
+      proposalType: String(event.proposalType || 'unknown'),
+      validatorId: String(event.validatorId || '').trim() || 'unknown',
+      action: String(event.action || 'unknown'),
+      status: String(event.status || 'unknown'),
+      txHash: String(event.txHash || ''),
+      eventUid: eventUid || null,
+      blockNumber: Number(event.blockNumber || 0),
+      logIndex: Number(event.logIndex || 0),
+      removed: Boolean(event.removed),
+      gasUsed: Number(event.gasUsed || 0),
+      source: String(event.source || 'api'),
+      reason: String(event.reason || ''),
+    };
+    fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
+    if (filePath === PROPOSAL_TELEMETRY_FILE && eventUid) {
+      _proposalUidCache.add(eventUid);
+    }
+    return entry;
+  });
 }
 
 function hasProposalEvent(eventUid, filePath = PROPOSAL_TELEMETRY_FILE) {
   if (!eventUid || !fs.existsSync(filePath)) {
     return false;
   }
+  // Use in-memory cache for the default file path to avoid O(n) scan per submission.
+  if (filePath === PROPOSAL_TELEMETRY_FILE) {
+    _seedProposalUidCache();
+    return _proposalUidCache.has(eventUid);
+  }
+  // Custom filePath (e.g. tests): fall back to file scan.
   const lines = fs.readFileSync(filePath, 'utf8').split('\n').filter(Boolean);
   for (const line of lines) {
     try {

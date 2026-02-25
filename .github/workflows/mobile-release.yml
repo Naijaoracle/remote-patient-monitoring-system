@@ -1,0 +1,69 @@
+name: Mobile Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-mobile-assets:
+    name: Build Mobile Release Assets
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: Telemedicine-Remote-Monitoring-System/rpm_flutter_client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Build Android APK (Release)
+        run: flutter build apk --release
+
+      - name: Build iOS (Device, no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Build iOS (Simulator)
+        run: flutter build ios --simulator --debug
+
+      - name: Prepare release files
+        run: |
+          mkdir -p build/release-dist
+          cp build/app/outputs/flutter-apk/app-release.apk build/release-dist/rpm-app-a-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk build/release-dist/rpm-app-b-release.apk
+
+          if [ -d build/ios/iphoneos/Runner.app ]; then
+            ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app build/release-dist/Runner-iphoneos-nosign.zip
+          fi
+          if [ -d build/ios/iphonesimulator/Runner.app ]; then
+            ditto -c -k --sequesterRsrc --keepParent build/ios/iphonesimulator/Runner.app build/release-dist/Runner-iphonesimulator.zip
+          fi
+
+      - name: Upload release artifacts (workflow)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-release-files
+          path: Telemedicine-Remote-Monitoring-System/rpm_flutter_client/build/release-dist/*
+
+      - name: Publish GitHub Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Telemedicine-Remote-Monitoring-System/rpm_flutter_client/build/release-dist/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

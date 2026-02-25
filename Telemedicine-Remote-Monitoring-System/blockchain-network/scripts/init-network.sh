@@ -12,5 +12,6 @@ fi
 
 env -u GETH_BIN "$GETH_BIN" --datadir "${ROOT_DIR}/node1" init "${ROOT_DIR}/genesis.json"
 env -u GETH_BIN "$GETH_BIN" --datadir "${ROOT_DIR}/node2" init "${ROOT_DIR}/genesis.json"
+env -u GETH_BIN "$GETH_BIN" --datadir "${ROOT_DIR}/node3" init "${ROOT_DIR}/genesis.json"
 
 echo "Blockchain network initialized from existing genesis.json"

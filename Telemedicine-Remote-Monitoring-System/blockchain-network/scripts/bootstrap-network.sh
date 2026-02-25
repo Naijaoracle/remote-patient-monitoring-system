@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NODE1_DIR="${ROOT_DIR}/node1"
 NODE2_DIR="${ROOT_DIR}/node2"
+NODE3_DIR="${ROOT_DIR}/node3"
 GENESIS_FILE="${ROOT_DIR}/genesis.json"
 NETWORK_ID="${NETWORK_ID:-1234}"
 DEFAULT_PASSWORD="${NODE_PASSWORD:-dev-only-password-change-me}"
@@ -17,13 +18,20 @@ require_cmd() {
   fi
 }
 
-require_pinned_geth() {
+require_supported_geth() {
   local version_line
   version_line="$("$GETH_BIN" version 2>/dev/null | sed -n 's/^Version: //p' | head -n1)"
-  if [[ ! "$version_line" =~ ^1\.13\. ]]; then
+  if [[ "$version_line" =~ ^1\.13\. ]]; then
+    return
+  fi
+  if [[ "$version_line" =~ ^1\.17\. ]]; then
+    echo "Using geth ${version_line} (supported with Clique legacy mode)." >&2
+    return
+  fi
+  if [[ ! "$version_line" =~ ^1\.13\.|^1\.17\. ]]; then
     echo "Unsupported geth version: ${version_line:-unknown}" >&2
-    echo "This local Clique flow is pinned to geth 1.13.x for clique_propose support." >&2
-    echo "Set GETH_BIN to a 1.13.x binary path." >&2
+    echo "This local Clique flow supports geth 1.13.x and 1.17.x." >&2
+    echo "Set GETH_BIN to a supported binary path." >&2
     exit 1
   fi
 }
@@ -73,17 +81,19 @@ ensure_account() {
 build_extradata() {
   local signer1="$1"
   local signer2="$2"
+  local signer3="$3"
   local vanity seal
   vanity="$(printf '0%.0s' {1..64})"
   seal="$(printf '0%.0s' {1..130})"
-  printf '0x%s%s%s%s' "$vanity" "$signer1" "$signer2" "$seal"
+  printf '0x%s%s%s%s%s' "$vanity" "$signer1" "$signer2" "$signer3" "$seal"
 }
 
 write_genesis() {
   local signer1="$1"
   local signer2="$2"
+  local signer3="$3"
   local extradata
-  extradata="$(build_extradata "$signer1" "$signer2")"
+  extradata="$(build_extradata "$signer1" "$signer2" "$signer3")"
 
   cat > "$GENESIS_FILE" <<JSON
 {
@@ -115,7 +125,8 @@ write_genesis() {
   "coinbase": "0x0000000000000000000000000000000000000000",
   "alloc": {
     "${signer1}": { "balance": "0x3635C9ADC5DEA00000" },
-    "${signer2}": { "balance": "0x3635C9ADC5DEA00000" }
+    "${signer2}": { "balance": "0x3635C9ADC5DEA00000" },
+    "${signer3}": { "balance": "0x3635C9ADC5DEA00000" }
   },
   "number": "0x0",
   "gasUsed": "0x0",
@@ -131,29 +142,34 @@ init_node() {
 
 main() {
   require_cmd "$GETH_BIN"
-  require_pinned_geth
+  require_supported_geth
 
-  mkdir -p "$NODE1_DIR" "$NODE2_DIR"
+  mkdir -p "$NODE1_DIR" "$NODE2_DIR" "$NODE3_DIR"
 
   local node1_account_file="${NODE1_DIR}/account.txt"
   local node2_account_file="${NODE2_DIR}/account.txt"
-  local signer1 signer2
+  local node3_account_file="${NODE3_DIR}/account.txt"
+  local signer1 signer2 signer3
 
   signer1="$(ensure_account "$NODE1_DIR" "$node1_account_file")"
   signer2="$(ensure_account "$NODE2_DIR" "$node2_account_file")"
+  signer3="$(ensure_account "$NODE3_DIR" "$node3_account_file")"
 
-  write_genesis "$signer1" "$signer2"
+  write_genesis "$signer1" "$signer2" "$signer3"
 
-  rm -rf "${NODE1_DIR}/geth" "${NODE2_DIR}/geth"
+  rm -rf "${NODE1_DIR}/geth" "${NODE2_DIR}/geth" "${NODE3_DIR}/geth"
   init_node "$NODE1_DIR"
   init_node "$NODE2_DIR"
+  init_node "$NODE3_DIR"
 
   echo "Bootstrap complete."
   echo "Network ID: ${NETWORK_ID}"
   echo "Node1 signer address: 0x${signer1}"
   echo "Node2 signer address: 0x${signer2}"
+  echo "Node3 signer address: 0x${signer3}"
   echo "Run: ./scripts/start-node.sh node1   (terminal 1)"
   echo "Run: ./scripts/start-node.sh node2   (terminal 2)"
+  echo "Run: ./scripts/start-node.sh node3   (terminal 3)"
 }
 
 main "$@"

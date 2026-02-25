@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { withFileLock } = require('./file-lock');
 
 const CONSENT_FILE = path.join(__dirname, '.data', 'consent.jsonl');
+const latestConsentIndex = new Map();
+const consentIndexMeta = new Map();
 
 function ensureConsentDir(filePath = CONSENT_FILE) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -31,6 +34,43 @@ function writeConsentEntries(entries, filePath = CONSENT_FILE) {
     entries.map((entry) => JSON.stringify(entry)).join('\n') + (entries.length ? '\n' : ''),
     'utf8'
   );
+  latestConsentIndex.delete(filePath);
+  consentIndexMeta.delete(filePath);
+}
+
+function getFileMeta(filePath) {
+  try {
+    const stat = fs.statSync(filePath, { bigint: true });
+    return `${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
+  } catch (_error) {
+    return '';
+  }
+}
+
+function rebuildConsentIndex(filePath = CONSENT_FILE) {
+  const entries = readConsentEntries(filePath);
+  const latestByPatient = new Map();
+  for (const entry of entries) {
+    latestByPatient.set(entry.patientId, entry);
+  }
+  latestConsentIndex.set(filePath, latestByPatient);
+  consentIndexMeta.set(filePath, getFileMeta(filePath));
+  return latestByPatient;
+}
+
+function getConsentIndex(filePath = CONSENT_FILE) {
+  if (!fs.existsSync(filePath)) {
+    latestConsentIndex.delete(filePath);
+    consentIndexMeta.delete(filePath);
+    return new Map();
+  }
+  const fileMeta = getFileMeta(filePath);
+  const cachedMeta = consentIndexMeta.get(filePath);
+  const cachedIndex = latestConsentIndex.get(filePath);
+  if (cachedIndex && cachedMeta === fileMeta) {
+    return cachedIndex;
+  }
+  return rebuildConsentIndex(filePath);
 }
 
 function normalizeExpiresAt(expiresAt) {
@@ -58,7 +98,7 @@ function normalizeStringArray(input, fallback = []) {
   return fallback;
 }
 
-function setConsent(payload, filePath = CONSENT_FILE) {
+async function setConsent(payload, filePath = CONSENT_FILE) {
   const patientId = String(payload.patientId || '').trim();
   if (!patientId) {
     throw new Error('patientId is required');
@@ -81,7 +121,13 @@ function setConsent(payload, filePath = CONSENT_FILE) {
   };
 
   ensureConsentDir(filePath);
-  fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
+  await withFileLock(`${filePath}.lock`, () => {
+    fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
+    const index = getConsentIndex(filePath);
+    index.set(patientId, entry);
+    latestConsentIndex.set(filePath, index);
+    consentIndexMeta.set(filePath, getFileMeta(filePath));
+  });
   return entry;
 }
 
@@ -91,13 +137,8 @@ function getLatestConsent(patientId, filePath = CONSENT_FILE) {
     return null;
   }
 
-  const entries = readConsentEntries(filePath);
-  for (let i = entries.length - 1; i >= 0; i -= 1) {
-    if (entries[i].patientId === resolvedPatientId) {
-      return entries[i];
-    }
-  }
-  return null;
+  const index = getConsentIndex(filePath);
+  return index.get(resolvedPatientId) || null;
 }
 
 function hasActiveConsent(patientId, nowMs = Date.now(), filePath = CONSENT_FILE) {
@@ -153,34 +194,36 @@ function evaluateConsent(patientId, options = {}, filePath = CONSENT_FILE) {
   return { ok: true, reason: 'ok', consent: entry };
 }
 
-function purgeExpiredConsents(filePath = CONSENT_FILE, nowMs = Date.now()) {
+async function purgeExpiredConsents(filePath = CONSENT_FILE, nowMs = Date.now()) {
   if (!fs.existsSync(filePath)) {
     return 0;
   }
 
-  const entries = readConsentEntries(filePath);
-  const latestByPatient = new Map();
-  for (const entry of entries) {
-    latestByPatient.set(entry.patientId, entry);
-  }
-
-  const kept = [];
-  let removed = 0;
-  for (const entry of latestByPatient.values()) {
-    if (!entry.expiresAt) {
-      kept.push(entry);
-      continue;
+  return withFileLock(`${filePath}.lock`, () => {
+    const entries = readConsentEntries(filePath);
+    const latestByPatient = new Map();
+    for (const entry of entries) {
+      latestByPatient.set(entry.patientId, entry);
     }
-    const expiresMs = new Date(entry.expiresAt).getTime();
-    if (!Number.isFinite(expiresMs) || expiresMs > nowMs || entry.granted === false) {
-      kept.push(entry);
-    } else {
-      removed += 1;
-    }
-  }
 
-  writeConsentEntries(kept, filePath);
-  return removed;
+    const kept = [];
+    let removed = 0;
+    for (const entry of latestByPatient.values()) {
+      if (!entry.expiresAt) {
+        kept.push(entry);
+        continue;
+      }
+      const expiresMs = new Date(entry.expiresAt).getTime();
+      if (!Number.isFinite(expiresMs) || expiresMs > nowMs || entry.granted === false) {
+        kept.push(entry);
+      } else {
+        removed += 1;
+      }
+    }
+
+    writeConsentEntries(kept, filePath);
+    return removed;
+  });
 }
 
 module.exports = {
