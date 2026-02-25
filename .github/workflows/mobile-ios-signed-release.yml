@@ -2,9 +2,6 @@ name: Mobile iOS Signed IPA
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 jobs:
   build-signed-ipa:
