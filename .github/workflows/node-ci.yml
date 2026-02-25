@@ -60,7 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           rm -f package-lock.json
-          npm install --omit=optional
+          npm install
 
       - name: Run Hardhat tests
         run: npx hardhat test
