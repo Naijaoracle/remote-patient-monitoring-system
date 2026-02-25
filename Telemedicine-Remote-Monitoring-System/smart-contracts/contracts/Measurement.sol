@@ -73,6 +73,14 @@ contract Measurement {
         _;
     }
 
+    modifier onlyAuthorized() {
+        require(
+            msg.sender == owner || validatorManager.isValidator(msg.sender),
+            "Not authorized"
+        );
+        _;
+    }
+
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "Invalid owner");
         emit OwnershipTransferred(owner, newOwner);
@@ -175,6 +183,7 @@ contract Measurement {
     function getMeasurement(bytes32 measurementHash)
         external
         view
+        onlyAuthorized
         returns (
             address deviceAddress,
             address centralDeviceAddress,

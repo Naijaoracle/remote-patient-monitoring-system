@@ -27,12 +27,12 @@ for file in "${JS_FILES[@]}"; do
 done
 
 echo "Checking for zero-byte source files in active runtime paths..."
-if find ./demo ./mobile-app/services ./mobile-app/utils ./test ./smart-contracts/contracts ./scripts \
+if find ./demo ./shared/runtime/services ./shared/runtime/utils ./test ./smart-contracts/contracts ./scripts \
   -type f \( -name '*.js' -o -name '*.sol' -o -name '*.sh' \) -size 0 \
   -not -path '*/node_modules/*' \
   -not -path '*/.git/*' | grep -q .; then
   echo "Zero-byte source files detected:" >&2
-  find ./demo ./mobile-app/services ./mobile-app/utils ./test ./smart-contracts/contracts ./scripts \
+  find ./demo ./shared/runtime/services ./shared/runtime/utils ./test ./smart-contracts/contracts ./scripts \
     -type f \( -name '*.js' -o -name '*.sol' -o -name '*.sh' \) -size 0 \
     -not -path '*/node_modules/*' \
     -not -path '*/.git/*' >&2

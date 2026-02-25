@@ -30,11 +30,11 @@ test('consent store sets and retrieves latest consent', async () => {
     expiresAt,
   }, filePath);
 
-  const consent = getLatestConsent('patient-1', filePath);
+  const consent = await getLatestConsent('patient-1', filePath);
   assert.equal(consent.patientId, 'patient-1');
   assert.equal(consent.granted, true);
-  assert.equal(hasActiveConsent('patient-1', Date.now(), filePath), true);
-  const policyCheck = evaluateConsent('patient-1', { purpose: 'treatment', actorId: 'clinician-1' }, filePath);
+  assert.equal(await hasActiveConsent('patient-1', Date.now(), filePath), true);
+  const policyCheck = await evaluateConsent('patient-1', { purpose: 'treatment', actorId: 'clinician-1' }, filePath);
   assert.equal(policyCheck.ok, true);
 });
 
@@ -43,7 +43,7 @@ test('consent store treats expired consent as inactive', async () => {
   const expiresAt = new Date(Date.now() - 1_000).toISOString();
   await setConsent({ patientId: 'patient-2', granted: true, expiresAt }, filePath);
 
-  assert.equal(hasActiveConsent('patient-2', Date.now(), filePath), false);
+  assert.equal(await hasActiveConsent('patient-2', Date.now(), filePath), false);
 });
 
 test('consent purge removes expired latest grants', async () => {
@@ -61,8 +61,8 @@ test('consent purge removes expired latest grants', async () => {
 
   const removed = await purgeExpiredConsents(filePath, Date.now());
   assert.equal(removed, 1);
-  assert.equal(getLatestConsent('patient-3', filePath), null);
-  assert.equal(hasActiveConsent('patient-4', Date.now(), filePath), true);
+  assert.equal(await getLatestConsent('patient-3', filePath), null);
+  assert.equal(await hasActiveConsent('patient-4', Date.now(), filePath), true);
 });
 
 test('consent policy rejects unknown purpose and actor', async () => {
@@ -75,7 +75,7 @@ test('consent policy rejects unknown purpose and actor', async () => {
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
   }, filePath);
 
-  const badPurpose = evaluateConsent(
+  const badPurpose = await evaluateConsent(
     'patient-5',
     { purpose: 'research', actorId: 'clinician-allowed' },
     filePath
@@ -83,7 +83,7 @@ test('consent policy rejects unknown purpose and actor', async () => {
   assert.equal(badPurpose.ok, false);
   assert.equal(badPurpose.reason, 'purpose_not_allowed');
 
-  const badActor = evaluateConsent(
+  const badActor = await evaluateConsent(
     'patient-5',
     { purpose: 'treatment', actorId: 'clinician-other' },
     filePath
@@ -104,7 +104,7 @@ test('consent policy enforces role/org/scope constraints', async () => {
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
   }, filePath);
 
-  const ok = evaluateConsent('patient-6', {
+  const ok = await evaluateConsent('patient-6', {
     purpose: 'treatment',
     actorId: 'clinician-6',
     actorRole: 'doctor',
@@ -113,7 +113,7 @@ test('consent policy enforces role/org/scope constraints', async () => {
   }, filePath);
   assert.equal(ok.ok, true);
 
-  const badRole = evaluateConsent('patient-6', {
+  const badRole = await evaluateConsent('patient-6', {
     purpose: 'treatment',
     actorId: 'clinician-6',
     actorRole: 'nurse',
@@ -123,7 +123,7 @@ test('consent policy enforces role/org/scope constraints', async () => {
   assert.equal(badRole.ok, false);
   assert.equal(badRole.reason, 'role_not_allowed');
 
-  const badOrg = evaluateConsent('patient-6', {
+  const badOrg = await evaluateConsent('patient-6', {
     purpose: 'treatment',
     actorId: 'clinician-6',
     actorRole: 'doctor',
@@ -133,7 +133,7 @@ test('consent policy enforces role/org/scope constraints', async () => {
   assert.equal(badOrg.ok, false);
   assert.equal(badOrg.reason, 'org_not_allowed');
 
-  const badScope = evaluateConsent('patient-6', {
+  const badScope = await evaluateConsent('patient-6', {
     purpose: 'treatment',
     actorId: 'clinician-6',
     actorRole: 'doctor',
@@ -155,7 +155,7 @@ test('consent revocation propagation through lifecycle transitions', async () =>
     allowedActorIds: ['clinician-7'],
     expiresAt: new Date(nowMs + 60_000).toISOString(),
   }, filePath);
-  let check = evaluateConsent('patient-7', {
+  let check = await evaluateConsent('patient-7', {
     purpose: 'treatment',
     actorId: 'clinician-7',
   }, filePath);
@@ -166,7 +166,7 @@ test('consent revocation propagation through lifecycle transitions', async () =>
     granted: false,
     reason: 'revoked-by-patient',
   }, filePath);
-  check = evaluateConsent('patient-7', {
+  check = await evaluateConsent('patient-7', {
     purpose: 'treatment',
     actorId: 'clinician-7',
   }, filePath);
@@ -180,7 +180,7 @@ test('consent revocation propagation through lifecycle transitions', async () =>
     allowedActorIds: ['clinician-7'],
     expiresAt: new Date(nowMs + 120_000).toISOString(),
   }, filePath);
-  check = evaluateConsent('patient-7', {
+  check = await evaluateConsent('patient-7', {
     purpose: 'treatment',
     actorId: 'clinician-7',
   }, filePath);

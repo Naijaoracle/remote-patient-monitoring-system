@@ -50,17 +50,27 @@ function toRpcHex(value) {
   return `0x${BigInt(value).toString(16)}`;
 }
 
+const RPC_TIMEOUT_MS = 30_000;
+
 async function defaultRpcCall(rpcUrl, method, params) {
-  const response = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method,
-      params,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method,
+        params,
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
   if (!response.ok) {
     throw new Error(`RPC HTTP ${response.status}`);
   }
@@ -210,7 +220,9 @@ function buildRpcMeasurementAdapter(options = {}) {
         try {
           txHash = await rpcCall(rpcUrl, 'eth_sendTransaction', [txRequest]);
         } catch (error) {
-          nextNonceByValidator.delete(validatorAddress);
+          // Roll back to the attempted nonce so the next queued request
+          // retries it rather than fetching a potentially stale chain nonce.
+          nextNonceByValidator.set(validatorAddress, nonce);
           throw error;
         }
         const receipt = await waitForReceipt(rpcCall, rpcUrl, txHash);

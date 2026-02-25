@@ -1,7 +1,7 @@
 // Filepath: /test/unit/ble-tests.js
 
 const assert = require('assert');
-const BLEService = require('../../mobile-app/services/BLEService');
+const BLEService = require('../../shared/runtime/services/BLEService');
 
 describe('BLEService', () => {
   it('should scan for devices and return a list', async () => {

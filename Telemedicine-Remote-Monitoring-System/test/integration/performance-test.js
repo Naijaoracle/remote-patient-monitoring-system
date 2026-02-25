@@ -1,7 +1,7 @@
 // Filepath: /test/integration/performance-test.js
 
 const assert = require('assert');
-const BlockchainService = require('../../mobile-app/services/BlockchainService');
+const BlockchainService = require('../../shared/runtime/services/BlockchainService');
 
 describe('Performance Test', () => {
   it('should handle multiple transactions efficiently', async function () {

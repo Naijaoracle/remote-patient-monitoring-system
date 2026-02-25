@@ -18,7 +18,13 @@ function resolveKey() {
     return Buffer.from(keyHex, 'hex');
   }
 
-  // Demo-only deterministic fallback key.
+  if (process.env.ALLOW_DEMO_INSECURE_KEYS !== '1') {
+    throw new Error(
+      'RPM_STORAGE_KEY_HEX is required. Set it to a 64-char hex string (32 random bytes), ' +
+      'or set ALLOW_DEMO_INSECURE_KEYS=1 for explicit demo-only mode.'
+    );
+  }
+  // Demo-only deterministic fallback (only reachable when ALLOW_DEMO_INSECURE_KEYS=1).
   return crypto.createHash('sha256').update('rpm-demo-insecure-dev-key').digest();
 }
 

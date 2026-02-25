@@ -177,7 +177,7 @@ It supports:
 
 Notes:
 - `Telemedicine-Remote-Monitoring-System/rpm_flutter_client` is the active mobile demo client.
-- `Telemedicine-Remote-Monitoring-System/mobile-app/App.js` is a placeholder and not an active React Native entrypoint.
+- `Telemedicine-Remote-Monitoring-System/mobile-app/` is deprecated for UI; shared JS runtime modules now live under `Telemedicine-Remote-Monitoring-System/shared/runtime/`.
 
 Run:
 

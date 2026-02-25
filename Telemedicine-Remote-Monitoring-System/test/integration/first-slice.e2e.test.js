@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const BLEService = require('../../mobile-app/services/BLEService');
-const BlockchainService = require('../../mobile-app/services/BlockchainService');
-const CryptoUtils = require('../../mobile-app/utils/CryptoUtils');
+const BLEService = require('../../shared/runtime/services/BLEService');
+const BlockchainService = require('../../shared/runtime/services/BlockchainService');
+const CryptoUtils = require('../../shared/runtime/utils/CryptoUtils');
 
 test('First slice end-to-end: BLE to validator-anchored record', async () => {
   BLEService.resetForTests();

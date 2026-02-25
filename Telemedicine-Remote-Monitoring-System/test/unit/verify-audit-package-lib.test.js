@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const { buildAuditExportPackage } = require('../../demo/audit');
-const CryptoUtils = require('../../mobile-app/utils/CryptoUtils');
+const CryptoUtils = require('../../shared/runtime/utils/CryptoUtils');
 const { verifyAuditPackageFile } = require('../../scripts/lib/verify-audit-package-lib');
 
 function createTempJsonFile(content) {

@@ -1,7 +1,7 @@
 // Filepath: /test/unit/encryption-tests.js
 
 const assert = require('assert');
-const CryptoUtils = require('../../mobile-app/utils/CryptoUtils');
+const CryptoUtils = require('../../shared/runtime/utils/CryptoUtils');
 
 describe('CryptoUtils', () => {
   it('should sign data correctly', () => {

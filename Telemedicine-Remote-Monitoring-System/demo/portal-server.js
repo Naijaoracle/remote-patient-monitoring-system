@@ -3,10 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const BLEService = require('../mobile-app/services/BLEService');
-const BlockchainService = require('../mobile-app/services/BlockchainService');
-const KeyStoreService = require('../mobile-app/services/KeyStoreService');
-const CryptoUtils = require('../mobile-app/utils/CryptoUtils');
+const BLEService = require('../shared/runtime/services/BLEService');
+const BlockchainService = require('../shared/runtime/services/BlockchainService');
+const KeyStoreService = require('../shared/runtime/services/KeyStoreService');
+const CryptoUtils = require('../shared/runtime/utils/CryptoUtils');
 const { appendEncryptedRecord, getEncryptedRecord, purgeEncryptedRecords } = require('./persistence');
 const { setConsent, getLatestConsent, evaluateConsent, purgeExpiredConsents } = require('./consent');
 const { upsertActor, getActor, loadActors } = require('./identity');
@@ -42,6 +42,11 @@ const {
 const { handleCoreRoutes } = require('./routes/core-routes');
 const { handleAuditRoutes } = require('./routes/audit-routes');
 const { handleMonitorRoutes } = require('./routes/monitor-routes');
+
+const ALLOWED_MEASURE_TYPES = new Set([
+  'heart_rate', 'blood_pressure', 'spo2', 'temperature',
+  'respiratory_rate', 'glucose', 'weight',
+]);
 
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8099);
@@ -229,11 +234,7 @@ function writeAudit(req, status, message, role = 'public') {
     message,
   };
   fs.appendFileSync(AUDIT_LOG_FILE, JSON.stringify(entry) + '\n', 'utf8');
-  try {
-    maybeEvaluateAlerts();
-  } catch (error) {
-    logNonFatal('alert-evaluation', error);
-  }
+  maybeEvaluateAlerts().catch((error) => logNonFatal('alert-evaluation', error));
 }
 
 function logNonFatal(context, error) {
@@ -256,12 +257,12 @@ function logNonFatal(context, error) {
   }
 }
 
-function maybeEvaluateAlerts() {
+async function maybeEvaluateAlerts() {
   const nowMs = Date.now();
   const from = new Date(nowMs - (MONITOR_WINDOW_SECONDS * 1000)).toISOString();
   const auditEntries = exportAuditEntries({ from, limit: 1000 });
-  const telemetryEntries = exportValidatorTelemetry({ from, limit: 1000 });
-  const proposalEntries = exportProposalTelemetry({ from, limit: 1000 });
+  const telemetryEntries = await exportValidatorTelemetry({ from, limit: 1000 });
+  const proposalEntries = await exportProposalTelemetry({ from, limit: 1000 });
   evaluateAndPersistAlerts(
     auditEntries,
     {
@@ -333,6 +334,14 @@ function extractApiKey(req) {
     return auth.slice('Bearer '.length).trim();
   }
   return '';
+}
+
+function safeLogSubject(subject) {
+  if (!subject || !subject.startsWith('key:')) {
+    return subject || '';
+  }
+  const hash = crypto.createHash('sha256').update(subject.slice(4)).digest('hex').slice(0, 8);
+  return `key:[sha256:${hash}]`;
 }
 
 function secureEquals(a, b) {
@@ -656,8 +665,16 @@ async function submitMeasurement(payload, actorId) {
     throw new Error('System not initialized');
   }
 
-  const measureType = String(payload.type || '').trim() || 'heart_rate';
-  const measureValue = String(payload.value || '').trim() || '75';
+  const rawType = String(payload.type || '').trim();
+  const measureType = rawType || 'heart_rate';
+  if (rawType && !ALLOWED_MEASURE_TYPES.has(measureType)) {
+    throw new Error(`Invalid measurement type. Allowed: ${[...ALLOWED_MEASURE_TYPES].join(', ')}`);
+  }
+  const rawValue = String(payload.value || '').trim();
+  const measureValue = rawValue || '75';
+  if (rawValue && !Number.isFinite(Number(rawValue))) {
+    throw new Error('payload.value must be a finite number');
+  }
   const measureUnit = String(payload.unit || '').trim() || 'bpm';
   const patientId = String(payload.patientId || '').trim();
   const purpose = String(payload.purpose || '').trim();
@@ -687,7 +704,7 @@ async function submitMeasurement(payload, actorId) {
       validatorId: state.validatorId,
     },
   });
-  const consentCheck = evaluateConsent(patientId, {
+  const consentCheck = await evaluateConsent(patientId, {
     purpose,
     actorId,
     actorRole: actor.role,
@@ -872,7 +889,7 @@ const server = http.createServer(async (req, res) => {
   const rateSubject = resolveRateLimitSubject(req, url.pathname);
   const rate = consumeRateLimit(rateSubject);
   if (!rate.allowed) {
-    writeAudit(req, 429, `Rate limit exceeded subject=${rateSubject}`, 'unauthorized');
+    writeAudit(req, 429, `Rate limit exceeded subject=${safeLogSubject(rateSubject)}`, 'unauthorized');
     res.setHeader('Retry-After', String(Math.max(1, Math.ceil((rate.resetAtMs - Date.now()) / 1000))));
     return json(res, 429, { error: 'Rate limit exceeded' });
   }
@@ -987,7 +1004,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname.startsWith('/api/consent/')) {
       const patientId = decodeURIComponent(url.pathname.replace('/api/consent/', ''));
-      const consent = getLatestConsent(patientId);
+      const consent = await getLatestConsent(patientId);
       if (!consent) {
         writeAudit(req, 404, `Consent miss patientId=${patientId}`, auth.role);
         return json(res, 404, { error: 'Consent not found' });
@@ -996,7 +1013,7 @@ const server = http.createServer(async (req, res) => {
       const queryActorId = String(url.searchParams.get('actorId') || '').trim();
       const resolvedActorId = queryActorId || actorId;
       const actor = getActor(resolvedActorId);
-      const check = evaluateConsent(patientId, {
+      const check = await evaluateConsent(patientId, {
         purpose,
         actorId: resolvedActorId,
         actorRole: actor?.role,

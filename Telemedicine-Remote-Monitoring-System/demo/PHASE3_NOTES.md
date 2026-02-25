@@ -9,12 +9,12 @@ Implemented in this step:
   - `handshakeResponseAtMs`
   - `handshakeLatencyMs`
 - Validation rejects measurements when handshake latency exceeds configured bound.
-- Added keystore abstraction (`mobile-app/services/KeyStoreService.js`):
+- Added keystore abstraction (`shared/runtime/services/KeyStoreService.js`):
   - private keys are encrypted in memory and referenced by key id
   - BLE peripheral and central signatures in demo portal use key ids, not raw keys in app state
   - supports pluggable external signers for future hardware-backed integration
 - Added BLE adapter seam:
-  - simulator moved to `mobile-app/services/adapters/SimulatedBleAdapter.js`
+  - simulator moved to `shared/runtime/services/adapters/SimulatedBleAdapter.js`
   - `BLEService.setAdapter()` enables plugging in real platform BLE implementation later
 
 Key handling:

@@ -1,5 +1,5 @@
-const SimulatedBleAdapter = require('../../mobile-app/services/adapters/SimulatedBleAdapter');
-const BLEService = require('../../mobile-app/services/BLEService');
+const SimulatedBleAdapter = require('../../shared/runtime/services/adapters/SimulatedBleAdapter');
+const BLEService = require('../../shared/runtime/services/BLEService');
 const { runBleAdapterContractSuite } = require('../helpers/ble-adapter-contract');
 
 function createSimulatedAdapter() {

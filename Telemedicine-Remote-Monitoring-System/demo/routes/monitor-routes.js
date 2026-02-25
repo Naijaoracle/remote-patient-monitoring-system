@@ -23,9 +23,9 @@ async function handleMonitorRoutes(ctx) {
   if (req.method === 'GET' && url.pathname === '/api/monitor/summary') {
     const entries = exportAuditEntries({ limit: 1000 });
     const summary = summarizeAuditEntries(entries);
-    const validatorTelemetry = exportValidatorTelemetry({ limit: 1000 });
+    const validatorTelemetry = await exportValidatorTelemetry({ limit: 1000 });
     const validatorSummary = summarizeValidatorTelemetry(validatorTelemetry);
-    const proposalTelemetry = exportProposalTelemetry({ limit: 1000 });
+    const proposalTelemetry = await exportProposalTelemetry({ limit: 1000 });
     const proposalSummary = summarizeProposalTelemetry(proposalTelemetry);
     writeAudit(req, 200, 'Monitor summary read', auth.role);
     json(res, 200, { ok: true, summary, validatorSummary, proposalSummary });
@@ -45,7 +45,7 @@ async function handleMonitorRoutes(ctx) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/monitor/validators') {
-    const events = exportValidatorTelemetry({
+    const events = await exportValidatorTelemetry({
       from: url.searchParams.get('from'),
       to: url.searchParams.get('to'),
       limit: url.searchParams.get('limit'),
@@ -58,7 +58,7 @@ async function handleMonitorRoutes(ctx) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/monitor/proposals') {
-    const events = exportProposalTelemetry({
+    const events = await exportProposalTelemetry({
       from: url.searchParams.get('from'),
       to: url.searchParams.get('to'),
       limit: url.searchParams.get('limit'),

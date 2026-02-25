@@ -10,7 +10,7 @@ const {
   buildAuditExportPackage,
   verifyAuditExportPackage,
 } = require('../../demo/audit');
-const CryptoUtils = require('../../mobile-app/utils/CryptoUtils');
+const CryptoUtils = require('../../shared/runtime/utils/CryptoUtils');
 
 function createAuditFile(entries) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpm-audit-'));

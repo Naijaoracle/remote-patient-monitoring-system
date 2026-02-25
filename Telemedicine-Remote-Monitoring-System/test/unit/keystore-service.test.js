@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const KeyStoreService = require('../../mobile-app/services/KeyStoreService');
-const CryptoUtils = require('../../mobile-app/utils/CryptoUtils');
+const KeyStoreService = require('../../shared/runtime/services/KeyStoreService');
+const CryptoUtils = require('../../shared/runtime/utils/CryptoUtils');
 
 test.beforeEach(() => {
   KeyStoreService.resetForTests();

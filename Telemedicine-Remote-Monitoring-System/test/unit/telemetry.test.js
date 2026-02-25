@@ -40,7 +40,7 @@ test('telemetry appends and exports validator events', async () => {
     durationMs: 50,
   }, filePath);
 
-  const events = exportValidatorTelemetry({ limit: 10 }, filePath);
+  const events = await exportValidatorTelemetry({ limit: 10 }, filePath);
   assert.equal(events.length, 2);
   assert.equal(events[0].validatorId, '0xval1');
   assert.equal(events[1].status, 'failure');
@@ -93,7 +93,7 @@ test('proposal telemetry exports and summarizes lifecycle', async () => {
     reason: 'quorum',
   }, filePath);
 
-  const events = exportProposalTelemetry({ limit: 10 }, filePath);
+  const events = await exportProposalTelemetry({ limit: 10 }, filePath);
   assert.equal(events.length, 3);
   const summary = summarizeProposalTelemetry(events);
   assert.equal(summary.totalEvents, 3);
@@ -124,5 +124,5 @@ test('proposal telemetry deduplicates by eventUid', async () => {
 
   assert.equal(Boolean(first), true);
   assert.equal(duplicate, null);
-  assert.equal(exportProposalTelemetry({ limit: 10 }, filePath).length, 1);
+  assert.equal((await exportProposalTelemetry({ limit: 10 }, filePath)).length, 1);
 });

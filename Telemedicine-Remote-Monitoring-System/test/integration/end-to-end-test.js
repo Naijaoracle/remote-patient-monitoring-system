@@ -1,8 +1,8 @@
 // Filepath: /test/integration/end-to-end-test.js
 
 const assert = require('assert');
-const BLEService = require('../../mobile-app/services/BLEService');
-const BlockchainService = require('../../mobile-app/services/BlockchainService');
+const BLEService = require('../../shared/runtime/services/BLEService');
+const BlockchainService = require('../../shared/runtime/services/BlockchainService');
 
 describe('End-to-End Test', () => {
   it('should process data from device to blockchain successfully', async () => {

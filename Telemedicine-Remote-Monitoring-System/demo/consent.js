@@ -10,11 +10,14 @@ function ensureConsentDir(filePath = CONSENT_FILE) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
-function readConsentEntries(filePath = CONSENT_FILE) {
-  if (!fs.existsSync(filePath)) {
+async function readConsentEntries(filePath = CONSENT_FILE) {
+  let raw;
+  try {
+    raw = await fs.promises.readFile(filePath, 'utf8');
+  } catch (_error) {
     return [];
   }
-  return fs.readFileSync(filePath, 'utf8')
+  return raw
     .split('\n')
     .filter(Boolean)
     .map((line) => {
@@ -47,8 +50,8 @@ function getFileMeta(filePath) {
   }
 }
 
-function rebuildConsentIndex(filePath = CONSENT_FILE) {
-  const entries = readConsentEntries(filePath);
+async function rebuildConsentIndex(filePath = CONSENT_FILE) {
+  const entries = await readConsentEntries(filePath);
   const latestByPatient = new Map();
   for (const entry of entries) {
     latestByPatient.set(entry.patientId, entry);
@@ -58,7 +61,7 @@ function rebuildConsentIndex(filePath = CONSENT_FILE) {
   return latestByPatient;
 }
 
-function getConsentIndex(filePath = CONSENT_FILE) {
+async function getConsentIndex(filePath = CONSENT_FILE) {
   if (!fs.existsSync(filePath)) {
     latestConsentIndex.delete(filePath);
     consentIndexMeta.delete(filePath);
@@ -121,9 +124,9 @@ async function setConsent(payload, filePath = CONSENT_FILE) {
   };
 
   ensureConsentDir(filePath);
-  await withFileLock(`${filePath}.lock`, () => {
+  await withFileLock(`${filePath}.lock`, async () => {
     fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', 'utf8');
-    const index = getConsentIndex(filePath);
+    const index = await getConsentIndex(filePath);
     index.set(patientId, entry);
     latestConsentIndex.set(filePath, index);
     consentIndexMeta.set(filePath, getFileMeta(filePath));
@@ -131,22 +134,22 @@ async function setConsent(payload, filePath = CONSENT_FILE) {
   return entry;
 }
 
-function getLatestConsent(patientId, filePath = CONSENT_FILE) {
+async function getLatestConsent(patientId, filePath = CONSENT_FILE) {
   const resolvedPatientId = String(patientId || '').trim();
   if (!resolvedPatientId) {
     return null;
   }
 
-  const index = getConsentIndex(filePath);
+  const index = await getConsentIndex(filePath);
   return index.get(resolvedPatientId) || null;
 }
 
-function hasActiveConsent(patientId, nowMs = Date.now(), filePath = CONSENT_FILE) {
-  return evaluateConsent(patientId, { nowMs }, filePath).ok;
+async function hasActiveConsent(patientId, nowMs = Date.now(), filePath = CONSENT_FILE) {
+  return (await evaluateConsent(patientId, { nowMs }, filePath)).ok;
 }
 
-function evaluateConsent(patientId, options = {}, filePath = CONSENT_FILE) {
-  const entry = getLatestConsent(patientId, filePath);
+async function evaluateConsent(patientId, options = {}, filePath = CONSENT_FILE) {
+  const entry = await getLatestConsent(patientId, filePath);
   if (!entry || !entry.granted) {
     return { ok: false, reason: 'missing_or_revoked', consent: entry };
   }
@@ -199,8 +202,8 @@ async function purgeExpiredConsents(filePath = CONSENT_FILE, nowMs = Date.now())
     return 0;
   }
 
-  return withFileLock(`${filePath}.lock`, () => {
-    const entries = readConsentEntries(filePath);
+  return withFileLock(`${filePath}.lock`, async () => {
+    const entries = await readConsentEntries(filePath);
     const latestByPatient = new Map();
     for (const entry of entries) {
       latestByPatient.set(entry.patientId, entry);

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const CryptoUtils = require('../mobile-app/utils/CryptoUtils');
+const CryptoUtils = require('../shared/runtime/utils/CryptoUtils');
 
 const AUDIT_LOG_FILE = path.join(__dirname, '.data', 'audit.log.jsonl');
 

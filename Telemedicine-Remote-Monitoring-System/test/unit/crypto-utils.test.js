@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const CryptoUtils = require('../../mobile-app/utils/CryptoUtils');
+const CryptoUtils = require('../../shared/runtime/utils/CryptoUtils');
 
 test('CryptoUtils signs and verifies canonicalized payload', () => {
   const payloadA = { b: 2, a: 1 };

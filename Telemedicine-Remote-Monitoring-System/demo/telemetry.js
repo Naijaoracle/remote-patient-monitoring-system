@@ -45,8 +45,11 @@ async function appendValidatorTelemetry(event, filePath = TELEMETRY_FILE) {
   return entry;
 }
 
-function exportValidatorTelemetry(options = {}, filePath = TELEMETRY_FILE) {
-  if (!fs.existsSync(filePath)) {
+async function exportValidatorTelemetry(options = {}, filePath = TELEMETRY_FILE) {
+  let raw;
+  try {
+    raw = await fs.promises.readFile(filePath, 'utf8');
+  } catch (_error) {
     return [];
   }
 
@@ -56,7 +59,7 @@ function exportValidatorTelemetry(options = {}, filePath = TELEMETRY_FILE) {
   const resolvedLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 5000) : 500;
   const validatorId = String(options.validatorId || '').trim();
 
-  const entries = fs.readFileSync(filePath, 'utf8')
+  const entries = raw
     .split('\n')
     .filter(Boolean)
     .map((line) => {
@@ -198,8 +201,11 @@ function hasProposalEvent(eventUid, filePath = PROPOSAL_TELEMETRY_FILE) {
   return false;
 }
 
-function exportProposalTelemetry(options = {}, filePath = PROPOSAL_TELEMETRY_FILE) {
-  if (!fs.existsSync(filePath)) {
+async function exportProposalTelemetry(options = {}, filePath = PROPOSAL_TELEMETRY_FILE) {
+  let raw;
+  try {
+    raw = await fs.promises.readFile(filePath, 'utf8');
+  } catch (_error) {
     return [];
   }
 
@@ -211,7 +217,7 @@ function exportProposalTelemetry(options = {}, filePath = PROPOSAL_TELEMETRY_FIL
   const validatorId = String(options.validatorId || '').trim();
   const action = String(options.action || '').trim();
 
-  const entries = fs.readFileSync(filePath, 'utf8')
+  const entries = raw
     .split('\n')
     .filter(Boolean)
     .map((line) => {

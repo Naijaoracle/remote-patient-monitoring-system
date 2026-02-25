@@ -1,8 +1,8 @@
 const assert = require('assert');
 
-const BLEService = require('../../mobile-app/services/BLEService');
-const BlockchainService = require('../../mobile-app/services/BlockchainService');
-const CryptoUtils = require('../../mobile-app/utils/CryptoUtils');
+const BLEService = require('../../shared/runtime/services/BLEService');
+const BlockchainService = require('../../shared/runtime/services/BlockchainService');
+const CryptoUtils = require('../../shared/runtime/utils/CryptoUtils');
 
 async function run() {
   BLEService.resetForTests();

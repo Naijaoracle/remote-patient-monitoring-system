@@ -1,7 +1,7 @@
 // Filepath: /test/unit/blockchain-tests.js
 
 const assert = require('assert');
-const BlockchainService = require('../../mobile-app/services/BlockchainService');
+const BlockchainService = require('../../shared/runtime/services/BlockchainService');
 
 describe('BlockchainService', () => {
   it('should submit measurement data to the blockchain', async () => {

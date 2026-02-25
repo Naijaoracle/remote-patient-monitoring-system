@@ -80,9 +80,9 @@ Optional env vars:
 - `RATE_LIMIT_MAX_PER_WINDOW`: max API requests per subject per window (default `120`)
 
 ## What it uses
-- `mobile-app/services/BLEService.js`
-- `mobile-app/services/BlockchainService.js`
-- `mobile-app/utils/CryptoUtils.js`
+- `shared/runtime/services/BLEService.js`
+- `shared/runtime/services/BlockchainService.js`
+- `shared/runtime/utils/CryptoUtils.js`
 
 The portal server (`demo/portal-server.js`) exposes local API endpoints and the HTML UI (`demo/portal.html`) calls those endpoints.
 
